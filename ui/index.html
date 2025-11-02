@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS Eagle Eye</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            background: #0a0a0a;
+            color: #00ff41;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            padding: 1rem;
+            background: linear-gradient(90deg, #001100, #002200);
+            border-bottom: 1px solid #00ff41;
+            text-align: center;
+        }
+
+        .title {
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px #00ff41;
+        }
+
+        .login-screen {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at center, #001a00, #000000);
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            position: relative;
+        }
+
+        .visualization {
+            flex: 1;
+            position: relative;
+            background: #000000;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #00ff41;
+            font-size: 1.2rem;
+            text-shadow: 0 0 10px #00ff41;
+            display: none;
+            z-index: 1000;
+        }
+
+        .loading.visible {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1 class="title">AWS EAGLE EYE</h1>
+        </header>
+        
+        <div class="login-screen" id="loginScreen">
+            <aws-credentials-panel></aws-credentials-panel>
+        </div>
+
+        <main class="main-content hidden" id="mainContent">
+            <section class="visualization">
+                <network-visualization id="networkViz"></network-visualization>
+                <interface-info-panel></interface-info-panel>
+            </section>
+        </main>
+
+        <div class="loading" id="loading">
+            Scanning Network Interfaces...
+        </div>
+    </div>
+
+    <!-- AWS Data Manager (hidden component) -->
+    <aws-data-manager id="dataManager"></aws-data-manager>
+
+    <!-- External Dependencies -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    
+    <script type="importmap">
+    {
+        "imports": {
+            "@aws-sdk/client-dynamodb": "https://cdn.jsdelivr.net/npm/@aws-sdk/client-dynamodb@3/+esm",
+            "@aws-sdk/client-appsync": "https://cdn.jsdelivr.net/npm/@aws-sdk/client-appsync@3/+esm",
+            "@aws-sdk/client-ssm": "https://cdn.jsdelivr.net/npm/@aws-sdk/client-ssm@3/+esm"
+        }
+    }
+    </script>
+
+    <!-- Web Components -->
+    <script src="components/aws-credentials-panel.js"></script>
+    <script src="components/aws-data-manager.js"></script>
+    <script src="components/network-visualization.js"></script>
+    <script src="components/interface-info-panel.js"></script>
+
+    <!-- Main Application Logic -->
+    <script type="module">
+        class AWSEagleEyeApp {
+            constructor() {
+                this.init();
+            }
+
+            init() {
+                console.log('AWS Eagle Eye initialized');
+                this.setupEventListeners();
+            }
+
+            setupEventListeners() {
+                const dataManager = document.getElementById('dataManager');
+                const networkViz = document.getElementById('networkViz');
+
+                // Listen for successful AWS connection
+                dataManager.addEventListener('data-loaded', (event) => {
+                    const { data, hasAppSync, isDemo } = event.detail;
+                    this.showMainInterface();
+                    networkViz.setData(data);
+                    
+                    console.log(`Connected to AWS: ${data.length} network interfaces loaded`);
+                    if (hasAppSync) {
+                        console.log('AppSync configured - ready for real-time VPC Flow Logs');
+                    }
+                });
+
+                // Listen for connection errors
+                dataManager.addEventListener('data-error', (event) => {
+                    console.error('AWS Connection Error:', event.detail.error);
+                    this.showError(event.detail.error);
+                });
+
+                // Listen for VPC Flow Log updates
+                dataManager.addEventListener('flow-update', (event) => {
+                    networkViz.addFlowLog(event.detail.flowData);
+                });
+
+                // Listen for AWS connection attempts
+                document.addEventListener('aws-connect', (event) => {
+                    this.showLoading(true);
+                });
+            }
+
+            showMainInterface() {
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('mainContent').classList.remove('hidden');
+                this.showLoading(false);
+            }
+
+            showLoading(show) {
+                const loading = document.getElementById('loading');
+                if (show) {
+                    loading.classList.add('visible');
+                } else {
+                    loading.classList.remove('visible');
+                }
+            }
+
+            showError(message) {
+                // Error is handled by the credentials panel
+                this.showLoading(false);
+            }
+
+
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', () => {
+            new AWSEagleEyeApp();
+        });
+    </script>
+</body>
+</html>

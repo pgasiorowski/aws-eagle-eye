@@ -67,7 +67,7 @@ resource "aws_lambda_function" "vpc_flow_processor" {
 
 resource "aws_cloudwatch_log_group" "lambda_logs" {
   name              = "/aws/lambda/eagle-eye-vpc-flow-processor"
-  retention_in_days = 14
+  retention_in_days = 1
 }
 
 resource "aws_lambda_permission" "allow_s3_invoke" {
