@@ -198,6 +198,175 @@ class NetworkInterfaceDiscovery:
             logger.error(f"Error fetching network interfaces: {e}")
             raise
     
+    def get_all_subnets(self) -> List[Dict[str, Any]]:
+        """
+        Retrieve all subnets in the region.
+        
+        Returns:
+            List of subnet dictionaries
+        """
+        logger.info("Fetching all subnets...")
+        subnets = []
+        
+        try:
+            paginator = self.ec2_client.get_paginator('describe_subnets')
+            for page in paginator.paginate():
+                subnets.extend(page['Subnets'])
+            
+            logger.info(f"Found {len(subnets)} subnets")
+            return subnets
+        except ClientError as e:
+            logger.error(f"Error fetching subnets: {e}")
+            raise
+    
+    def get_internet_gateways(self) -> List[Dict[str, Any]]:
+        """
+        Retrieve all internet gateways in the region.
+        
+        Returns:
+            List of internet gateway dictionaries
+        """
+        logger.info("Fetching all internet gateways...")
+        igws = []
+        
+        try:
+            paginator = self.ec2_client.get_paginator('describe_internet_gateways')
+            for page in paginator.paginate():
+                igws.extend(page['InternetGateways'])
+            
+            logger.info(f"Found {len(igws)} internet gateways")
+            return igws
+        except ClientError as e:
+            logger.error(f"Error fetching internet gateways: {e}")
+            raise
+    
+    def create_virtual_appliances(self, subnets: List[Dict[str, Any]], igws: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Create virtual appliance entries for Internet Gateways and VPC Route53 Resolvers.
+        These don't have actual ENIs but need to be represented in the network map.
+        Creates one entry per IGW and one entry per VPC for DNS resolver, each with multiple IPs.
+        
+        Args:
+            subnets: List of subnet dictionaries
+            igws: List of internet gateway dictionaries
+            
+        Returns:
+            List of virtual appliance data dictionaries
+        """
+        import ipaddress
+        virtual_appliances = []
+        
+        # Group subnets by VPC
+        subnets_by_vpc = {}
+        for subnet in subnets:
+            vpc_id = subnet['VpcId']
+            if vpc_id not in subnets_by_vpc:
+                subnets_by_vpc[vpc_id] = []
+            subnets_by_vpc[vpc_id].append(subnet)
+        
+        # Create IGW virtual appliances - one per IGW with all .1 IPs from its VPC subnets
+        for igw in igws:
+            for attachment in igw.get('Attachments', []):
+                vpc_id = attachment.get('VpcId')
+                if vpc_id and attachment.get('State') == 'available':
+                    igw_id = igw['InternetGatewayId']
+                    
+                    # Get IGW tags
+                    igw_tags = {tag['Key']: tag['Value'] for tag in igw.get('Tags', [])}
+                    igw_name = igw_tags.get('Name', igw_id)
+                    
+                    # Collect all .1 IPs, subnet IDs, and AZs from all subnets in this VPC
+                    gateway_ips = []
+                    subnet_ids = {}
+                    azs = {}
+                    vpc_subnets = subnets_by_vpc.get(vpc_id, [])
+                    for subnet in vpc_subnets:
+                        cidr = subnet['CidrBlock']
+                        network = ipaddress.IPv4Network(cidr, strict=False)
+                        gateway_ip = str(network.network_address + 1)
+                        gateway_ips.append(gateway_ip)
+                        # Map subnet ID to AZ ID
+                        subnet_id = subnet['SubnetId']
+                        az_id = subnet.get('AvailabilityZoneId', subnet['AvailabilityZone'])
+                        subnet_ids[subnet_id] = az_id
+                        # Map AZ name to AZ ID
+                        az_name = subnet['AvailabilityZone']
+                        azs[az_name] = az_id
+                    
+                    # Create single virtual interface with all gateway IPs
+                    virtual_eni = {
+                        'id': igw_id,
+                        'vpc_id': vpc_id,
+                        'account_id': self.account_id,
+                        'subnet_ids': subnet_ids,
+                        'azs': azs,
+                        'interface_type': 'igw',
+                        'status': 'available',
+                        'mac_address': 'virtual',
+                        'description': f'Virtual interface for Internet Gateway {igw_id}',
+                        'security_group_ids': [],
+                        'private_ip_addresses': gateway_ips,
+                        'public_ips': [],
+                        'attachment': {},
+                        'eni_tags': {},
+                        'resource_type': 'igw',
+                        'resource_id': igw_id,
+                        'resource_name': igw_name,
+                        'resource_tags': igw_tags,
+                        'requester_id': 'aws-igw',
+                        'requester_managed': True,
+                        'last_updated': datetime.now(timezone.utc).isoformat(),
+                    }
+                    virtual_appliances.append(virtual_eni)
+        
+        # Create VPC Route53 Resolver virtual appliances - one per VPC with all .2 IPs
+        for vpc_id, vpc_subnets in subnets_by_vpc.items():
+            # Collect all .2 IPs, subnet IDs, and AZs from all subnets in this VPC
+            dns_ips = []
+            subnet_ids = {}
+            azs = {}
+            for subnet in vpc_subnets:
+                cidr = subnet['CidrBlock']
+                network = ipaddress.IPv4Network(cidr, strict=False)
+                dns_ip = str(network.network_address + 2)
+                dns_ips.append(dns_ip)
+                # Map subnet ID to AZ ID
+                subnet_id = subnet['SubnetId']
+                az_id = subnet.get('AvailabilityZoneId', subnet['AvailabilityZone'])
+                subnet_ids[subnet_id] = az_id
+                # Map AZ name to AZ ID
+                az_name = subnet['AvailabilityZone']
+                azs[az_name] = az_id
+            
+            # Create single virtual interface with all DNS IPs
+            virtual_eni = {
+                'id': f"resolver-{vpc_id}",
+                'vpc_id': vpc_id,
+                'account_id': self.account_id,
+                'subnet_ids': subnet_ids,
+                'azs': azs,
+                'interface_type': 'dns',
+                'status': 'available',
+                'mac_address': 'virtual',
+                'description': f'Virtual interface for VPC Route53 Resolver in {vpc_id}',
+                'security_group_ids': [],
+                'private_ip_addresses': dns_ips,
+                'public_ips': [],
+                'attachment': {},
+                'eni_tags': {},
+                'resource_type': 'dns',
+                'resource_id': f"resolver-{vpc_id}",
+                'resource_name': f'Route53 Resolver ({vpc_id})',
+                'resource_tags': {},
+                'requester_id': 'aws-route53-resolver',
+                'requester_managed': True,
+                'last_updated': datetime.now(timezone.utc).isoformat(),
+            }
+            virtual_appliances.append(virtual_eni)
+        
+        logger.info(f"Created {len(virtual_appliances)} virtual appliance interfaces")
+        return virtual_appliances
+    
     def parse_resource_from_description(self, description: str) -> Tuple[Optional[str], Optional[str]]:
         """
         Parse resource information from ENI description using regex patterns.
@@ -585,7 +754,7 @@ class NetworkInterfaceDiscovery:
         Returns:
             Dictionary with resource_type, resource_id, resource_name, and tags
         """
-        # Build basic ENI info for lookups
+        # Build basic ENI info for lookups (keeping old fields for compatibility)
         eni_info = {
             'id': eni['NetworkInterfaceId'],
             'vpc_id': eni.get('VpcId', ''),
@@ -739,6 +908,21 @@ class NetworkInterfaceDiscovery:
         # Get resource information
         resource_info = self.identify_resource(eni)
         
+        # Get subnet and AZ information
+        subnet_id = eni.get('SubnetId', 'N/A')
+        az_name = eni.get('AvailabilityZone', 'N/A')
+        
+        # For regular ENIs, create subnet_ids map and azs map
+        subnet_ids = {}
+        azs = {}
+        if subnet_id != 'N/A':
+            # Try to get AZ ID from subnet (would need to fetch subnet details)
+            # For now, use AZ name as fallback
+            az_id = az_name  # This could be enhanced to fetch actual AZ ID
+            subnet_ids[subnet_id] = az_id
+            if az_name != 'N/A':
+                azs[az_name] = az_id
+        
         # Build complete data structure
         data = {
             # Primary attributes (DynamoDB keys)
@@ -747,8 +931,8 @@ class NetworkInterfaceDiscovery:
             'account_id': self.account_id,
             
             # Network attributes
-            'subnet_id': eni.get('SubnetId', 'N/A'),
-            'availability_zone': eni.get('AvailabilityZone', 'N/A'),
+            'subnet_ids': subnet_ids,
+            'azs': azs,
             'interface_type': eni.get('InterfaceType', 'interface'),
             'status': eni.get('Status', 'unknown'),
             'mac_address': eni.get('MacAddress', 'N/A'),
@@ -809,8 +993,8 @@ class NetworkInterfaceDiscovery:
                 'id': eni_data['id'],
                 'vpc_id': eni_data['vpc_id'],
                 'account_id': eni_data['account_id'],
-                'subnet_id': eni_data['subnet_id'],
-                'availability_zone': eni_data['availability_zone'],
+                'subnet_ids': json.dumps(eni_data['subnet_ids']),
+                'azs': json.dumps(eni_data['azs']),
                 'interface_type': eni_data['interface_type'],
                 'status': eni_data['status'],
                 'mac_address': eni_data['mac_address'],
@@ -884,6 +1068,43 @@ class NetworkInterfaceDiscovery:
                     exc_info=True
                 )
                 stats['errors'] += 1
+        
+        # Get subnets and internet gateways for virtual appliances
+        try:
+            subnets = self.get_all_subnets()
+            igws = self.get_internet_gateways()
+            virtual_appliances = self.create_virtual_appliances(subnets, igws)
+            
+            # Process virtual appliances
+            for virtual_eni in virtual_appliances:
+                try:
+                    stats['processed'] += 1
+                    stats['total'] += 1
+                    
+                    # Track resource types
+                    resource_type = virtual_eni['resource_type']
+                    stats['by_type'][resource_type] = stats['by_type'].get(resource_type, 0) + 1
+                    
+                    # Log discovery
+                    logger.info(
+                        f"Virtual ENI {virtual_eni['id']}: {resource_type} - "
+                        f"{virtual_eni['resource_name']} ({virtual_eni['resource_id']})"
+                    )
+                    
+                    # Save to DynamoDB
+                    if self.save_to_dynamodb(virtual_eni):
+                        stats['saved'] += 1
+                    else:
+                        stats['errors'] += 1
+                        
+                except Exception as e:
+                    logger.error(
+                        f"Error processing virtual ENI {virtual_eni.get('id', 'unknown')}: {e}",
+                        exc_info=True
+                    )
+                    stats['errors'] += 1
+        except Exception as e:
+            logger.error(f"Error creating virtual appliances: {e}", exc_info=True)
         
         return stats
 
@@ -1125,6 +1346,11 @@ def main():
         action='store_true',
         help='Enable verbose logging'
     )
+    parser.add_argument(
+        '--output',
+        default='gather.json',
+        help='Output JSON file path (default: gather.json)'
+    )
     
     args = parser.parse_args()
     
@@ -1139,12 +1365,42 @@ def main():
         logger.info("Starting network interface discovery...")
         discovery = NetworkInterfaceDiscovery()
         
+        # Collect all ENI data for JSON output
+        all_eni_data = []
+        
         if args.dry_run:
             logger.info("DRY RUN MODE - No data will be saved to DynamoDB")
-            # Override save method for dry run
-            discovery.save_to_dynamodb = lambda x: True
+            # Override save method for dry run but still collect data
+            original_save = discovery.save_to_dynamodb
+            def save_and_collect(eni_data):
+                all_eni_data.append(eni_data)
+                return True
+            discovery.save_to_dynamodb = save_and_collect
+        else:
+            # Wrap the save method to also collect data
+            original_save = discovery.save_to_dynamodb
+            def save_and_collect(eni_data):
+                all_eni_data.append(eni_data)
+                return original_save(eni_data)
+            discovery.save_to_dynamodb = save_and_collect
         
         stats = discovery.process_all_network_interfaces()
+        
+        # Save results to JSON file
+        output_data = {
+            'metadata': {
+                'timestamp': datetime.now(timezone.utc).isoformat(),
+                'account_id': discovery.account_id,
+                'region': discovery.region,
+                'statistics': stats
+            },
+            'network_interfaces': all_eni_data
+        }
+        
+        with open(args.output, 'w') as f:
+            json.dump(output_data, f, indent=2, default=str)
+        
+        logger.info(f"Results saved to {args.output}")
         
         # Print summary
         logger.info("=" * 70)
@@ -1154,6 +1410,7 @@ def main():
         logger.info(f"Successfully processed:  {stats['processed']}")
         logger.info(f"Successfully saved:      {stats['saved']}")
         logger.info(f"Errors:                  {stats['errors']}")
+        logger.info(f"Output file:             {args.output}")
         logger.info("")
         logger.info("Resources by type:")
         for resource_type, count in sorted(stats['by_type'].items()):
