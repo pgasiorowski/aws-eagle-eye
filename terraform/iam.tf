@@ -112,10 +112,8 @@ resource "aws_iam_role" "vpc_flow_logs_cross_account_role" {
         Effect = "Allow"
         Principal = {
           AWS = aws_iam_role.log_delivery_service_role.arn
+          Service = "delivery.logs.amazonaws.com"
         }
-        Service = [
-            "delivery.logs.amazonaws.com"
-        ]
         Action = "sts:AssumeRole"
       },
       {
