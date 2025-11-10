@@ -4,38 +4,43 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>AWS VPC Argus</title>
-    <style>
-        html, body { 
-            margin: 0; 
-            padding: 0; 
-            background: #ffffff; 
-            height: 100%;
-            width: 100%;
-            overflow: hidden;
-        }
-        .page { 
-            display: flex; 
-            align-items: center; 
-            justify-content: center;
-            flex-direction: column;
-            width: 100%;
-            height: 100vh;
-            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
-        }
-        h1 { font-size: 18px; margin: 0 0 8px 0; }
-        .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
-        .hint { color: #666; font-size: 12px; }
-        network-chord-diagram { display: block; width: 100%; height: 100%; }
-        .legend { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 13px; }
-        .lg { display: inline-flex; align-items: center; gap: 6px; }
-        .sw { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
-        .sw.b { background:#1f77b4; }
-        .sw.r { background:#e74c3c; }
-        .sw.g { background:#2ecc71; }
-    </style>
+    <link rel="stylesheet" href="./css/styles.css">
 </head>
 <body>
 <div class="page">
+    <!-- Control Panel -->
+    <div class="control-panel">
+        <h3>Group By</h3>
+        <div class="control-group">
+            <div class="radio-group">
+                <div class="radio-option">
+                    <input type="radio" id="group-resource-type" name="grouping" value="resource-type" checked>
+                    <label for="group-resource-type">Resource Type</label>
+                </div>
+                <div class="radio-option">
+                    <input type="radio" id="group-subnet" name="grouping" value="subnet">
+                    <label for="group-subnet">Subnet</label>
+                </div>
+                <div class="radio-option">
+                    <input type="radio" id="group-az" name="grouping" value="availability-zone">
+                    <label for="group-az">Availability Zone</label>
+                </div>
+                <div class="radio-option">
+                    <input type="radio" id="group-tag" name="grouping" value="tag">
+                    <label for="group-tag">Tag</label>
+                </div>
+            </div>
+            
+            <!-- Tag selector (shown when "Tag" is selected) -->
+            <div class="tag-selector" id="tag-selector">
+                <label for="tag-name-select">Tag Name:</label>
+                <select id="tag-name-select">
+                    <option value="">Select a tag...</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    
     <network-chord-diagram id="demo" width="307" height="307">
         <script type="application/json" id="chart-data">
 {
@@ -48,98 +53,8 @@
 </div>
 
 <script type="module">
-// Load data from gather.js and convert to chart format
-async function loadAndConvertData() {
-    try {
-        const response = await fetch('./gather.json');
-        const gatherData = await response.json();
-        
-        // Extract network interfaces from gather data
-        const networkInterfaces = gatherData.network_interfaces || [];
-        
-        // Group interfaces by their group field (not resource_type)
-        const groupedByGroup = {};
-        networkInterfaces.forEach(eni => {
-            const group = eni.group || eni.resource_type || 'unknown';
-            if (!groupedByGroup[group]) {
-                groupedByGroup[group] = [];
-            }
-            groupedByGroup[group].push(eni);
-        });
-        
-        // Create groups from the grouped interfaces
-        const groups = Object.keys(groupedByGroup).map(groupId => ({
-            id: groupId,
-            name: groupId.toUpperCase().replace(/-/g, ' ')
-        }));
-        
-        // Create interfaces from ENIs
-        const interfaces = networkInterfaces.map((eni, index) => {
-            const resourceType = eni.resource_type || 'unknown';
-            
-            const interfaceData = {
-                id: eni.id,
-                name: `${eni.resource_name || eni.resource_id}/${eni.id}`,
-                group: eni.group || resourceType,
-                ips: eni.private_ip_addresses || [],
-                publicIps: eni.public_ips || [],
-                createdAt: eni.last_updated || new Date().toISOString(),
-                subnetIds: eni.subnet_ids || {},
-                azs: eni.azs || {},
-                vpcId: eni.vpc_id,
-                securityGroups: eni.security_group_ids || [],
-                resourceType: resourceType,
-                resourceId: eni.resource_id,
-                resourceName: eni.resource_name,
-                description: eni.description,
-                tags: eni.resource_tags || {}
-            };
-            
-            // Add type field if present (for virtual appliances)
-            if (eni.type) {
-                interfaceData.type = eni.type;
-            }
-            
-            return interfaceData;
-        });
-        
-        // Traffic will be added later
-        const traffic = [];
-        
-        // Update the chart data
-        const chartData = {
-            groups,
-            interfaces,
-            traffic,
-            metadata: gatherData.metadata || {}
-        };
-        
-        // Update the script tag with new data
-        const scriptTag = document.getElementById('chart-data');
-        scriptTag.textContent = JSON.stringify(chartData, null, 2);
-        
-        // Trigger a custom event to notify the component
-        const event = new CustomEvent('data-loaded', { detail: chartData });
-        document.getElementById('demo').dispatchEvent(event);
-        
-        console.log('Data loaded successfully:', {
-            groups: groups.length,
-            interfaces: interfaces.length,
-            traffic: traffic.length
-        });
-        
-    } catch (error) {
-        console.error('Error loading gather.js data:', error);
-        // Keep the default empty data structure
-    }
-}
-
-// Load data when page is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', loadAndConvertData);
-} else {
-    loadAndConvertData();
-}
+import { initializeDataLoader } from './js/dataLoader.js';
+initializeDataLoader('./index.json');
 </script>
 <script type="module" src="./js/app.js"></script>
 

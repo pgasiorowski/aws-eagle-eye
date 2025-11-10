@@ -1,0 +1,157 @@
+/* Base styles */
+html, body { 
+    margin: 0; 
+    padding: 0; 
+    background: #ffffff; 
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+}
+
+.page { 
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    flex-direction: column;
+    width: 100%;
+    height: 100vh;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+}
+
+h1 { 
+    font-size: 18px; 
+    margin: 0 0 8px 0; 
+}
+
+.row { 
+    display: flex; 
+    align-items: center; 
+    gap: 12px; 
+    flex-wrap: wrap; 
+    margin-bottom: 10px; 
+}
+
+.hint { 
+    color: #666; 
+    font-size: 12px; 
+}
+
+network-chord-diagram { 
+    display: block; 
+    width: 100%; 
+    height: 100%; 
+}
+
+.legend { 
+    display: flex; 
+    gap: 14px; 
+    align-items: center; 
+    flex-wrap: wrap; 
+    font-size: 13px; 
+}
+
+.lg { 
+    display: inline-flex; 
+    align-items: center; 
+    gap: 6px; 
+}
+
+.sw { 
+    width: 14px; 
+    height: 14px; 
+    border-radius: 3px; 
+    display: inline-block; 
+}
+
+.sw.b { 
+    background:#1f77b4; 
+}
+
+.sw.r { 
+    background:#e74c3c; 
+}
+
+.sw.g { 
+    background:#2ecc71; 
+}
+
+/* Control panel styles */
+.control-panel {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+    font-size: 13px;
+    min-width: 200px;
+    z-index: 1000;
+}
+
+.control-panel h3 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+}
+
+.control-group {
+    margin-bottom: 12px;
+}
+
+.control-group label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 500;
+    color: #555;
+}
+
+.radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.radio-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.radio-option input[type="radio"] {
+    cursor: pointer;
+}
+
+.radio-option label {
+    cursor: pointer;
+    margin: 0;
+    font-weight: normal;
+}
+
+.tag-selector {
+    margin-top: 8px;
+    display: none;
+}
+
+.tag-selector.visible {
+    display: block;
+}
+
+.tag-selector select {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+    background: white;
+    cursor: pointer;
+}
+
+.tag-selector select:focus {
+    outline: none;
+    border-color: #1f77b4;
+}
