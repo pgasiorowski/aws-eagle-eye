@@ -57,62 +57,30 @@ async function loadAndConvertData() {
         // Extract network interfaces from gather data
         const networkInterfaces = gatherData.network_interfaces || [];
         
-        // Group interfaces by resource type
-        const groupedByType = {};
+        // Group interfaces by their group field (not resource_type)
+        const groupedByGroup = {};
         networkInterfaces.forEach(eni => {
-            const resourceType = eni.resource_type || 'unknown';
-            if (!groupedByType[resourceType]) {
-                groupedByType[resourceType] = [];
+            const group = eni.group || eni.resource_type || 'unknown';
+            if (!groupedByGroup[group]) {
+                groupedByGroup[group] = [];
             }
-            groupedByType[resourceType].push(eni);
+            groupedByGroup[group].push(eni);
         });
         
-        // Define color mapping for resource types
-        const colorMap = {
-            'ec2': '#1f77b4',
-            'eks': '#1f77b4',
-            'eks-pod': '#1f77b4',
-            'ecs': '#1f77b4',
-            'lambda': '#1f77b4',
-            'rds': '#2ecc71',
-            'elasticache': '#2ecc71',
-            'redshift': '#2ecc71',
-            'elb': '#ff9800',
-            'nat-gateway': '#ff9800',
-            'igw': '#ff9800',
-            'vpc-endpoint': '#9c27b0',
-            'route53-resolver': '#9c27b0',
-            'route53-resolver-inbound': '#9c27b0',
-            'route53-resolver-outbound': '#9c27b0',
-            'dns': '#9c27b0',
-            'unknown': '#95a5a6'
-        };
-        
-        // Create groups from resource types
-        const groups = Object.keys(groupedByType).map(type => ({
-            id: type,
-            name: type.toUpperCase().replace(/-/g, ' '),
-            color: colorMap[type] || '#95a5a6'
+        // Create groups from the grouped interfaces
+        const groups = Object.keys(groupedByGroup).map(groupId => ({
+            id: groupId,
+            name: groupId.toUpperCase().replace(/-/g, ' ')
         }));
         
         // Create interfaces from ENIs
         const interfaces = networkInterfaces.map((eni, index) => {
             const resourceType = eni.resource_type || 'unknown';
             
-            // Map resource types to visualization groups
-            // IGW, NAT gateways, VPN gateways, peering -> 'gateways' group
-            // VPC endpoints, DNS resolvers -> 'endpoints' group
-            let group = resourceType;
-            if (resourceType === 'igw' || resourceType === 'nat-gateway' || resourceType === 'vgw' || resourceType === 'peering') {
-                group = 'gateways';
-            } else if (resourceType === 'vpc-endpoint' || resourceType === 'dns' || resourceType.startsWith('route53-resolver')) {
-                group = 'endpoints';
-            }
-            
             const interfaceData = {
                 id: eni.id,
                 name: `${eni.resource_name || eni.resource_id}/${eni.id}`,
-                group: group,
+                group: eni.group || resourceType,
                 ips: eni.private_ip_addresses || [],
                 publicIps: eni.public_ips || [],
                 createdAt: eni.last_updated || new Date().toISOString(),

@@ -91,8 +91,9 @@ export class SVGBuilder {
         // Helper function to get symbol for interface type
         const getTypeSymbol = (type) => {
             switch (type) {
-                case 'igw': return 'IG';
-                case 'vgw': return 'DX';
+                case 'igw': return 'IGW';
+                case 'dns': return 'DNS';
+                case 'vgw': return 'VGW';
                 case 'peering': return 'PX';
                 case 'endpoint': return 'E';
                 default: return null;

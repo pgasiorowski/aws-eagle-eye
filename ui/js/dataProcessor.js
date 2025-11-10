@@ -58,8 +58,8 @@ export class DataProcessor {
                 status: this.calculateInterfaceStatus(iface, trafficData, ipToInterfaceMap)
             };
             
-            // Reassign group for endpoint, igw, vgw, peering types to "vpc"
-            if (iface.type === 'endpoint' || iface.type === 'igw' || iface.type === 'vgw' || iface.type === 'peering') {
+            // Reassign group for endpoint, igw, vgw, peering, dns types to "vpc"
+            if (iface.type === 'endpoint' || iface.type === 'igw' || iface.type === 'vgw' || iface.type === 'peering' || iface.type === 'dns') {
                 processedIface.group = 'vpc';
             }
             
@@ -85,6 +85,7 @@ export class DataProcessor {
             
             // Separate by type
             const endpoints = vpcInterfaces.filter(i => i.type === 'endpoint');
+            const dnsInterfaces = vpcInterfaces.filter(i => i.type === 'dns');
             const igwInterfaces = vpcInterfaces.filter(i => i.type === 'igw');
             const vgwInterfaces = vpcInterfaces.filter(i => i.type === 'vgw');
             const peeringInterfaces = vpcInterfaces.filter(i => i.type === 'peering');
@@ -111,8 +112,9 @@ export class DataProcessor {
                 ...endpoints.slice(0, totalEndpointsBeforeCenter),
                 // Near PX: peering
                 ...peeringInterfaces,
-                // Center: IG and DX (most central)
+                // Center: IG, DNS, and DX (most central)
                 ...igwInterfaces,
+                ...dnsInterfaces,
                 ...vgwInterfaces,
                 // End: remaining endpoints (second half)
                 ...endpoints.slice(totalEndpointsBeforeCenter)

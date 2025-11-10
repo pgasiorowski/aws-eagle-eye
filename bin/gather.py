@@ -301,6 +301,7 @@ class NetworkInterfaceDiscovery:
                         'subnet_ids': subnet_ids,
                         'azs': azs,
                         'interface_type': 'igw',
+                        'type': 'igw',
                         'status': 'available',
                         'mac_address': 'virtual',
                         'description': f'Virtual interface for Internet Gateway {igw_id}',
@@ -315,6 +316,7 @@ class NetworkInterfaceDiscovery:
                         'resource_tags': igw_tags,
                         'requester_id': 'aws-igw',
                         'requester_managed': True,
+                        'group': 'vpc',
                         'last_updated': datetime.now(timezone.utc).isoformat(),
                     }
                     virtual_appliances.append(virtual_eni)
@@ -346,6 +348,7 @@ class NetworkInterfaceDiscovery:
                 'subnet_ids': subnet_ids,
                 'azs': azs,
                 'interface_type': 'dns',
+                'type': 'dns',
                 'status': 'available',
                 'mac_address': 'virtual',
                 'description': f'Virtual interface for VPC Route53 Resolver in {vpc_id}',
@@ -360,6 +363,7 @@ class NetworkInterfaceDiscovery:
                 'resource_tags': {},
                 'requester_id': 'aws-route53-resolver',
                 'requester_managed': True,
+                'group': 'vpc',
                 'last_updated': datetime.now(timezone.utc).isoformat(),
             }
             virtual_appliances.append(virtual_eni)
@@ -617,29 +621,82 @@ class NetworkInterfaceDiscovery:
         
         return (None, None)
     
-    def get_resource_tags_by_eni(self, eni_id: str) -> Dict[str, Any]:
+    def get_tags_by_arn(self, resource_arn: str) -> Dict[str, str]:
         """
-        Find resource associated with ENI using Resource Groups Tagging API.
+        Get tags for any AWS resource using its ARN via Resource Groups Tagging API.
         
-        This is a generic approach that works for ANY AWS resource.
+        This is a generic approach that works for ANY AWS resource type.
         
         Args:
-            eni_id: Network interface ID
+            resource_arn: The ARN of the resource
             
         Returns:
-            Dictionary with 'resource_arn', 'resource_type', 'resource_id', and 'tags'
+            Dictionary of tags (key-value pairs)
         """
         try:
-            # Search for resources that have this ENI in their configuration
-            # We'll search by checking if any resource is in the same VPC/subnet
-            # and correlate based on timing and location
+            response = self.tagging_client.get_resources(
+                ResourceARNList=[resource_arn]
+            )
             
-            # For now, we'll use a simpler approach: try to get tags directly from the ENI
-            # and look for resources by their ARNs in descriptions
+            if response.get('ResourceTagMappingList'):
+                resource = response['ResourceTagMappingList'][0]
+                tags = {tag['Key']: tag['Value'] for tag in resource.get('Tags', [])}
+                return tags
+            
             return {}
         except ClientError as e:
-            logger.warning(f"Error querying tagging API for ENI {eni_id}: {e}")
+            logger.warning(f"Error fetching tags for ARN {resource_arn}: {e}")
             return {}
+    
+    def construct_resource_arn(self, resource_type: str, resource_id: str) -> Optional[str]:
+        """
+        Construct an ARN for a resource based on its type and ID.
+        
+        Args:
+            resource_type: Type of resource (lambda, rds, ec2, etc.)
+            resource_id: Resource identifier
+            
+        Returns:
+            ARN string or None if unable to construct
+        """
+        # ARN format: arn:aws:service:region:account-id:resource-type/resource-id
+        # or: arn:aws:service:region:account-id:resource-type:resource-id
+        
+        arn_patterns = {
+            'lambda': f"arn:aws:lambda:{self.region}:{self.account_id}:function:{resource_id}",
+            'ec2': f"arn:aws:ec2:{self.region}:{self.account_id}:instance/{resource_id}",
+            'rds': f"arn:aws:rds:{self.region}:{self.account_id}:db:{resource_id}",
+            'nat-gateway': f"arn:aws:ec2:{self.region}:{self.account_id}:natgateway/{resource_id}",
+            'vpc-endpoint': f"arn:aws:ec2:{self.region}:{self.account_id}:vpc-endpoint/{resource_id}",
+            'elb': self._construct_elb_arn(resource_id),
+            'ecs': f"arn:aws:ecs:{self.region}:{self.account_id}:task/{resource_id}",
+            'eks': f"arn:aws:eks:{self.region}:{self.account_id}:cluster/{resource_id}",
+            'elasticache': f"arn:aws:elasticache:{self.region}:{self.account_id}:cluster:{resource_id}",
+            'redshift': f"arn:aws:redshift:{self.region}:{self.account_id}:cluster:{resource_id}",
+            'efs': f"arn:aws:elasticfilesystem:{self.region}:{self.account_id}:file-system/{resource_id}",
+            'fsx': f"arn:aws:fsx:{self.region}:{self.account_id}:file-system/{resource_id}",
+            'msk': f"arn:aws:kafka:{self.region}:{self.account_id}:cluster/{resource_id}",
+            'mq': f"arn:aws:mq:{self.region}:{self.account_id}:broker:{resource_id}",
+            'sagemaker': f"arn:aws:sagemaker:{self.region}:{self.account_id}:notebook-instance/{resource_id}",
+            'emr': f"arn:aws:elasticmapreduce:{self.region}:{self.account_id}:cluster/{resource_id}",
+            'glue': f"arn:aws:glue:{self.region}:{self.account_id}:job/{resource_id}",
+            'opensearch': f"arn:aws:es:{self.region}:{self.account_id}:domain/{resource_id}",
+            'elasticsearch': f"arn:aws:es:{self.region}:{self.account_id}:domain/{resource_id}",
+            'neptune': f"arn:aws:rds:{self.region}:{self.account_id}:cluster:{resource_id}",
+            'documentdb': f"arn:aws:rds:{self.region}:{self.account_id}:cluster:{resource_id}",
+            'memorydb': f"arn:aws:memorydb:{self.region}:{self.account_id}:cluster/{resource_id}",
+        }
+        
+        return arn_patterns.get(resource_type)
+    
+    def _construct_elb_arn(self, resource_id: str) -> Optional[str]:
+        """Construct ELB ARN based on the resource_id format."""
+        # resource_id format: "app/my-alb/50dc6c495c0c9188" or "net/my-nlb/..."
+        if '/' in resource_id:
+            return f"arn:aws:elasticloadbalancing:{self.region}:{self.account_id}:loadbalancer/{resource_id}"
+        else:
+            # Classic ELB
+            return f"arn:aws:elasticloadbalancing:{self.region}:{self.account_id}:loadbalancer/{resource_id}"
     
     def get_rds_instance_by_eni(self, eni_data: Dict[str, Any]) -> Tuple[Optional[str], Dict[str, str]]:
         """
@@ -685,7 +742,8 @@ class NetworkInterfaceDiscovery:
         """
         Get resource information and tags by resource type and ID.
         
-        This makes targeted API calls only when we have specific resource IDs.
+        Uses a generic approach via Resource Groups Tagging API when possible,
+        with fallback to specific API calls for special cases.
         
         Args:
             resource_type: Type of resource (ec2, lambda, elb, etc.)
@@ -695,48 +753,59 @@ class NetworkInterfaceDiscovery:
         Returns:
             Tuple of (resource_name, tags_dict)
         """
+        # Special case: RDS without ID - need to find by ENI location
+        if resource_type == 'rds' and not resource_id and eni_data:
+            return self.get_rds_instance_by_eni(eni_data)
+        
+        # If we don't have a resource_id, we can't proceed
+        if not resource_id:
+            return ('N/A', {})
+        
         try:
+            # Try generic approach first: construct ARN and use Tagging API
+            resource_arn = self.construct_resource_arn(resource_type, resource_id)
+            
+            if resource_arn:
+                tags = self.get_tags_by_arn(resource_arn)
+                
+                # For resources where we need the name, try to extract it from tags
+                resource_name = tags.get('Name', resource_id)
+                
+                # Special handling for certain resource types to get better names
+                if resource_type == 'vpc-endpoint' and not tags.get('Name'):
+                    # For VPC endpoints, try to get the service name
+                    try:
+                        response = self.ec2_client.describe_vpc_endpoints(VpcEndpointIds=[resource_id])
+                        if response['VpcEndpoints']:
+                            resource_name = response['VpcEndpoints'][0].get('ServiceName', resource_id)
+                    except ClientError:
+                        pass
+                
+                return (resource_name, tags)
+            
+            # Fallback: try service-specific API calls for resources we can't construct ARNs for
+            logger.debug(f"No ARN pattern for {resource_type}, trying service-specific API")
+            
             if resource_type == 'ec2':
                 response = self.ec2_client.describe_instances(InstanceIds=[resource_id])
                 if response['Reservations'] and response['Reservations'][0]['Instances']:
                     instance = response['Reservations'][0]['Instances'][0]
-                    name = instance.get('Tags', [{}])[0].get('Value', resource_id)
                     tags = {tag['Key']: tag['Value'] for tag in instance.get('Tags', [])}
+                    name = tags.get('Name', resource_id)
                     return (name, tags)
-            
-            elif resource_type == 'rds':
-                # If we don't have a specific ID, try to find by ENI location
-                if not resource_id and eni_data:
-                    return self.get_rds_instance_by_eni(eni_data)
-                elif resource_id:
-                    response = self.rds_client.describe_db_instances(DBInstanceIdentifier=resource_id)
-                    if response['DBInstances']:
-                        db = response['DBInstances'][0]
-                        tags_response = self.rds_client.list_tags_for_resource(
-                            ResourceName=db['DBInstanceArn']
-                        )
-                        tags = {tag['Key']: tag['Value'] for tag in tags_response.get('TagList', [])}
-                        return (db['DBInstanceIdentifier'], tags)
             
             elif resource_type == 'nat-gateway':
                 response = self.ec2_client.describe_nat_gateways(NatGatewayIds=[resource_id])
                 if response['NatGateways']:
                     nat_gw = response['NatGateways'][0]
                     tags = {tag['Key']: tag['Value'] for tag in nat_gw.get('Tags', [])}
-                    return (resource_id, tags)
-            
-            elif resource_type == 'vpc-endpoint':
-                response = self.ec2_client.describe_vpc_endpoints(VpcEndpointIds=[resource_id])
-                if response['VpcEndpoints']:
-                    endpoint = response['VpcEndpoints'][0]
-                    tags = {tag['Key']: tag['Value'] for tag in endpoint.get('Tags', [])}
-                    service_name = endpoint.get('ServiceName', resource_id)
-                    return (service_name, tags)
+                    name = tags.get('Name', resource_id)
+                    return (name, tags)
         
         except ClientError as e:
             logger.warning(f"Error fetching {resource_type} {resource_id}: {e}")
         
-        return (resource_id if resource_id else 'N/A', {})
+        return (resource_id, {})
     
     def identify_resource(self, eni: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -895,6 +964,26 @@ class NetworkInterfaceDiscovery:
         
         return result
     
+    def get_visualization_group(self, resource_type: str) -> str:
+        """
+        Map resource type to visualization group for UI display.
+        
+        Virtual appliances (IGW, VPN Gateway, VPC Endpoints, DNS) are placed in the 'vpc' group
+        for special positioning in the circular layout.
+        
+        Args:
+            resource_type: The resource type
+            
+        Returns:
+            Group name for visualization
+        """
+        # Virtual appliances and VPC infrastructure go in the 'vpc' group
+        # The UI will position these specially in the VPC section of the circle
+        if resource_type in ['igw', 'nat-gateway', 'vgw', 'peering', 'vpc-endpoint', 'dns'] or resource_type.startswith('route53-resolver'):
+            return 'vpc'
+        else:
+            return resource_type
+    
     def extract_eni_data(self, eni: Dict[str, Any]) -> Dict[str, Any]:
         """
         Extract all relevant data from a network interface.
@@ -969,6 +1058,9 @@ class NetworkInterfaceDiscovery:
             'requester_id': resource_info['requester_id'],
             'requester_managed': resource_info['requester_managed'],
             
+            # Visualization group (for UI display)
+            'group': self.get_visualization_group(resource_info['resource_type']),
+            
             # Metadata
             'last_updated': datetime.now(timezone.utc).isoformat(),
         }
@@ -1010,8 +1102,13 @@ class NetworkInterfaceDiscovery:
                 'resource_tags': json.dumps(eni_data['resource_tags']),
                 'requester_id': eni_data['requester_id'],
                 'requester_managed': eni_data['requester_managed'],
+                'group': eni_data['group'],
                 'last_updated': eni_data['last_updated'],
             }
+            
+            # Add optional 'type' field if present (for virtual appliances)
+            if 'type' in eni_data:
+                item['type'] = eni_data['type']
             
             table.put_item(Item=item)
             return True
