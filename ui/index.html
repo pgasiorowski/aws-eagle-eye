@@ -1,203 +1,179 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="pl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AWS Eagle Eye</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AWS VPC Argus</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-            background: #0a0a0a;
-            color: #00ff41;
+        html, body { 
+            margin: 0; 
+            padding: 0; 
+            background: #ffffff; 
+            height: 100%;
+            width: 100%;
             overflow: hidden;
         }
-
-        .container {
-            width: 100vw;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .header {
-            padding: 1rem;
-            background: linear-gradient(90deg, #001100, #002200);
-            border-bottom: 1px solid #00ff41;
-            text-align: center;
-        }
-
-        .title {
-            font-size: 1.5rem;
-            letter-spacing: 2px;
-            text-shadow: 0 0 10px #00ff41;
-        }
-
-        .login-screen {
-            flex: 1;
-            display: flex;
-            align-items: center;
+        .page { 
+            display: flex; 
+            align-items: center; 
             justify-content: center;
-            background: radial-gradient(circle at center, #001a00, #000000);
-        }
-
-        .main-content {
-            flex: 1;
-            display: flex;
-            position: relative;
-        }
-
-        .visualization {
-            flex: 1;
-            position: relative;
-            background: #000000;
-            display: flex;
             flex-direction: column;
-            overflow: hidden;
+            width: 100%;
+            height: 100vh;
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
         }
-
-        .hidden {
-            display: none !important;
-        }
-
-        .loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: #00ff41;
-            font-size: 1.2rem;
-            text-shadow: 0 0 10px #00ff41;
-            display: none;
-            z-index: 1000;
-        }
-
-        .loading.visible {
-            display: block;
-        }
+        h1 { font-size: 18px; margin: 0 0 8px 0; }
+        .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+        .hint { color: #666; font-size: 12px; }
+        network-chord-diagram { display: block; width: 100%; height: 100%; }
+        .legend { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+        .lg { display: inline-flex; align-items: center; gap: 6px; }
+        .sw { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+        .sw.b { background:#1f77b4; }
+        .sw.r { background:#e74c3c; }
+        .sw.g { background:#2ecc71; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header class="header">
-            <h1 class="title">AWS EAGLE EYE</h1>
-        </header>
+<div class="page">
+    <network-chord-diagram id="demo" width="307" height="307">
+        <script type="application/json" id="chart-data">
+{
+  "groups": [],
+  "interfaces": [],
+  "traffic": []
+}
+        </script>
+    </network-chord-diagram>
+</div>
+
+<script type="module">
+// Load data from gather.js and convert to chart format
+async function loadAndConvertData() {
+    try {
+        const response = await fetch('./gather.json');
+        const gatherData = await response.json();
         
-        <div class="login-screen" id="loginScreen">
-            <aws-credentials-panel></aws-credentials-panel>
-        </div>
-
-        <main class="main-content hidden" id="mainContent">
-            <section class="visualization">
-                <network-visualization id="networkViz"></network-visualization>
-                <interface-info-panel></interface-info-panel>
-            </section>
-        </main>
-
-        <div class="loading" id="loading">
-            Scanning Network Interfaces...
-        </div>
-    </div>
-
-    <!-- AWS Data Manager (hidden component) -->
-    <aws-data-manager id="dataManager"></aws-data-manager>
-
-    <!-- External Dependencies -->
-    <script src="https://d3js.org/d3.v7.min.js"></script>
-    
-    <script type="importmap">
-    {
-        "imports": {
-            "@aws-sdk/client-dynamodb": "https://cdn.jsdelivr.net/npm/@aws-sdk/client-dynamodb@3/+esm",
-            "@aws-sdk/client-appsync": "https://cdn.jsdelivr.net/npm/@aws-sdk/client-appsync@3/+esm",
-            "@aws-sdk/client-ssm": "https://cdn.jsdelivr.net/npm/@aws-sdk/client-ssm@3/+esm"
-        }
-    }
-    </script>
-
-    <!-- Web Components -->
-    <script src="components/aws-credentials-panel.js"></script>
-    <script src="components/aws-data-manager.js"></script>
-    <script src="components/network-visualization.js"></script>
-    <script src="components/interface-info-panel.js"></script>
-
-    <!-- Main Application Logic -->
-    <script type="module">
-        class AWSEagleEyeApp {
-            constructor() {
-                this.init();
+        // Extract network interfaces from gather data
+        const networkInterfaces = gatherData.network_interfaces || [];
+        
+        // Group interfaces by resource type
+        const groupedByType = {};
+        networkInterfaces.forEach(eni => {
+            const resourceType = eni.resource_type || 'unknown';
+            if (!groupedByType[resourceType]) {
+                groupedByType[resourceType] = [];
             }
-
-            init() {
-                console.log('AWS Eagle Eye initialized');
-                this.setupEventListeners();
-            }
-
-            setupEventListeners() {
-                const dataManager = document.getElementById('dataManager');
-                const networkViz = document.getElementById('networkViz');
-
-                // Listen for successful AWS connection
-                dataManager.addEventListener('data-loaded', (event) => {
-                    const { data, hasAppSync, isDemo } = event.detail;
-                    this.showMainInterface();
-                    networkViz.setData(data);
-                    
-                    console.log(`Connected to AWS: ${data.length} network interfaces loaded`);
-                    if (hasAppSync) {
-                        console.log('AppSync configured - ready for real-time VPC Flow Logs');
-                    }
-                });
-
-                // Listen for connection errors
-                dataManager.addEventListener('data-error', (event) => {
-                    console.error('AWS Connection Error:', event.detail.error);
-                    this.showError(event.detail.error);
-                });
-
-                // Listen for VPC Flow Log updates
-                dataManager.addEventListener('flow-update', (event) => {
-                    networkViz.addFlowLog(event.detail.flowData);
-                });
-
-                // Listen for AWS connection attempts
-                document.addEventListener('aws-connect', (event) => {
-                    this.showLoading(true);
-                });
-            }
-
-            showMainInterface() {
-                document.getElementById('loginScreen').classList.add('hidden');
-                document.getElementById('mainContent').classList.remove('hidden');
-                this.showLoading(false);
-            }
-
-            showLoading(show) {
-                const loading = document.getElementById('loading');
-                if (show) {
-                    loading.classList.add('visible');
-                } else {
-                    loading.classList.remove('visible');
-                }
-            }
-
-            showError(message) {
-                // Error is handled by the credentials panel
-                this.showLoading(false);
-            }
-
-
-        }
-
-        // Initialize the application
-        document.addEventListener('DOMContentLoaded', () => {
-            new AWSEagleEyeApp();
+            groupedByType[resourceType].push(eni);
         });
-    </script>
+        
+        // Define color mapping for resource types
+        const colorMap = {
+            'ec2': '#1f77b4',
+            'eks': '#1f77b4',
+            'eks-pod': '#1f77b4',
+            'ecs': '#1f77b4',
+            'lambda': '#1f77b4',
+            'rds': '#2ecc71',
+            'elasticache': '#2ecc71',
+            'redshift': '#2ecc71',
+            'elb': '#ff9800',
+            'nat-gateway': '#ff9800',
+            'igw': '#ff9800',
+            'vpc-endpoint': '#9c27b0',
+            'route53-resolver': '#9c27b0',
+            'route53-resolver-inbound': '#9c27b0',
+            'route53-resolver-outbound': '#9c27b0',
+            'dns': '#9c27b0',
+            'unknown': '#95a5a6'
+        };
+        
+        // Create groups from resource types
+        const groups = Object.keys(groupedByType).map(type => ({
+            id: type,
+            name: type.toUpperCase().replace(/-/g, ' '),
+            color: colorMap[type] || '#95a5a6'
+        }));
+        
+        // Create interfaces from ENIs
+        const interfaces = networkInterfaces.map((eni, index) => {
+            const resourceType = eni.resource_type || 'unknown';
+            
+            // Map resource types to visualization groups
+            // IGW, NAT gateways, VPN gateways, peering -> 'gateways' group
+            // VPC endpoints, DNS resolvers -> 'endpoints' group
+            let group = resourceType;
+            if (resourceType === 'igw' || resourceType === 'nat-gateway' || resourceType === 'vgw' || resourceType === 'peering') {
+                group = 'gateways';
+            } else if (resourceType === 'vpc-endpoint' || resourceType === 'dns' || resourceType.startsWith('route53-resolver')) {
+                group = 'endpoints';
+            }
+            
+            const interfaceData = {
+                id: eni.id,
+                name: `${eni.resource_name || eni.resource_id}/${eni.id}`,
+                group: group,
+                ips: eni.private_ip_addresses || [],
+                publicIps: eni.public_ips || [],
+                createdAt: eni.last_updated || new Date().toISOString(),
+                subnetIds: eni.subnet_ids || {},
+                azs: eni.azs || {},
+                vpcId: eni.vpc_id,
+                securityGroups: eni.security_group_ids || [],
+                resourceType: resourceType,
+                resourceId: eni.resource_id,
+                resourceName: eni.resource_name,
+                description: eni.description,
+                tags: eni.resource_tags || {}
+            };
+            
+            // Add type field if present (for virtual appliances)
+            if (eni.type) {
+                interfaceData.type = eni.type;
+            }
+            
+            return interfaceData;
+        });
+        
+        // Traffic will be added later
+        const traffic = [];
+        
+        // Update the chart data
+        const chartData = {
+            groups,
+            interfaces,
+            traffic,
+            metadata: gatherData.metadata || {}
+        };
+        
+        // Update the script tag with new data
+        const scriptTag = document.getElementById('chart-data');
+        scriptTag.textContent = JSON.stringify(chartData, null, 2);
+        
+        // Trigger a custom event to notify the component
+        const event = new CustomEvent('data-loaded', { detail: chartData });
+        document.getElementById('demo').dispatchEvent(event);
+        
+        console.log('Data loaded successfully:', {
+            groups: groups.length,
+            interfaces: interfaces.length,
+            traffic: traffic.length
+        });
+        
+    } catch (error) {
+        console.error('Error loading gather.js data:', error);
+        // Keep the default empty data structure
+    }
+}
+
+// Load data when page is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadAndConvertData);
+} else {
+    loadAndConvertData();
+}
+</script>
+<script type="module" src="./js/app.js"></script>
+
 </body>
 </html>

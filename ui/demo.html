@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="pl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AWS VPC Argus</title>
+    <style>
+        html, body { 
+            margin: 0; 
+            padding: 0; 
+            background: #ffffff; 
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+        }
+        .page { 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            flex-direction: column;
+            width: 100%;
+            height: 100vh;
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+        }
+        h1 { font-size: 18px; margin: 0 0 8px 0; }
+        .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+        .hint { color: #666; font-size: 12px; }
+        network-chord-diagram { display: block; width: 100%; height: 100%; }
+        .legend { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+        .lg { display: inline-flex; align-items: center; gap: 6px; }
+        .sw { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+        .sw.b { background:#1f77b4; }
+        .sw.r { background:#e74c3c; }
+        .sw.g { background:#2ecc71; }
+    </style>
+</head>
+<body>
+<div class="page">
+    <network-chord-diagram id="demo" width="307" height="307">
+        <script type="application/json" id="chart-data">
+{
+  "groups": [
+    { "id": "auth",     "name": "Auth",     "color": "#1f77b4" },
+    { "id": "orders",   "name": "Orders",   "color": "#1f77b4" },
+    { "id": "payments", "name": "Payments", "color": "#1f77b4" },
+    { "id": "analytics","name": "Analytics","color": "#1f77b4" },
+    { "id": "vpc",      "name": "VPC",      "color": "#4caf50" },
+    { "id": "gateways", "name": "Gateways", "color": "#ff9800" },
+    { "id": "endpoints", "name": "Endpoints", "color": "#9c27b0" }
+  ],
+  "interfaces": [
+    { "id": "auth-0", "name": "auth/eth0", "group": "auth", "ips": ["10.1.2.15", "10.1.2.112"], "createdAt": "2026-11-09T10:00:00.000Z" },
+    { "id": "auth-1", "name": "auth/eth1", "group": "auth", "ips": ["10.1.2.84"], "createdAt": "2024-01-15T09:30:00.000Z" },
+    { "id": "auth-2", "name": "auth/eth2", "group": "auth", "ips": ["10.1.2.203", "10.1.2.67", "10.1.2.156"], "createdAt": "2024-01-15T14:58:00.000Z" },
+
+    { "id": "orders-0", "name": "orders/eth0", "group": "orders", "ips": ["10.1.2.42"], "createdAt": "2024-01-15T08:00:00.000Z" },
+    { "id": "orders-1", "name": "orders/eth1", "group": "orders", "ips": ["10.1.2.129", "10.1.2.91"], "createdAt": "2024-01-15T08:15:00.000Z" },
+    { "id": "orders-2", "name": "orders/eth2", "group": "orders", "ips": ["10.1.2.38"], "createdAt": "2024-01-15T07:00:00.000Z" },
+
+    { "id": "payments-0", "name": "payments/eth0", "group": "payments", "ips": ["10.1.2.167"], "createdAt": "2024-01-15T11:00:00.000Z" },
+    { "id": "payments-1", "name": "payments/eth1", "group": "payments", "ips": ["10.1.2.73", "10.1.2.198"], "createdAt": "2024-01-15T10:30:00.000Z" },
+    { "id": "payments-2", "name": "payments/eth2", "group": "payments", "ips": ["10.1.2.51"], "createdAt": "2024-01-15T09:00:00.000Z" },
+
+    { "id": "analytics-0", "name": "analytics/eth0", "group": "analytics", "ips": ["10.1.2.22"], "createdAt": "2024-01-15T06:00:00.000Z" },
+    { "id": "analytics-1", "name": "analytics/eth1", "group": "analytics", "ips": ["10.1.2.145", "10.1.2.76"], "createdAt": "2024-01-15T05:00:00.000Z" },
+    { "id": "analytics-2", "name": "analytics/eth2", "group": "analytics", "ips": ["10.1.2.104"], "createdAt": "2024-01-15T06:30:00.000Z" },
+    { "id": "analytics-3", "name": "analytics/eth3", "group": "analytics", "ips": ["10.1.2.189", "10.1.2.58"], "createdAt": "2024-01-15T07:30:00.000Z" },
+    { "id": "analytics-4", "name": "analytics/eth4", "group": "analytics", "ips": ["10.1.2.11"], "createdAt": "2024-01-15T08:45:00.000Z" },
+    { "id": "analytics-5", "name": "analytics/eth5", "group": "analytics", "ips": ["10.1.2.227"], "createdAt": "2024-01-15T04:00:00.000Z" },
+    { "id": "analytics-6", "name": "analytics/eth6", "group": "analytics", "ips": ["10.1.2.137", "10.1.2.82"], "createdAt": "2024-01-15T14:57:00.000Z" },
+    { "id": "analytics-7", "name": "analytics/eth7", "group": "analytics", "ips": ["10.1.2.68"], "createdAt": "2024-01-15T09:45:00.000Z" },
+    { "id": "analytics-8", "name": "analytics/eth8", "group": "analytics", "ips": ["10.1.2.119", "10.1.2.201"], "createdAt": "2024-01-15T10:15:00.000Z" },
+    { "id": "analytics-9", "name": "analytics/eth9", "group": "analytics", "ips": ["10.1.2.41"], "createdAt": "2024-01-15T03:00:00.000Z" },
+    { "id": "analytics-10", "name": "analytics/eth10", "group": "analytics", "ips": ["10.1.2.163"], "createdAt": "2024-01-15T11:30:00.000Z" },
+    { "id": "analytics-11", "name": "analytics/eth11", "group": "analytics", "ips": ["10.1.2.99", "10.1.2.216"], "createdAt": "2024-01-15T12:00:00.000Z" },
+    { "id": "analytics-12", "name": "analytics/eth12", "group": "analytics", "ips": ["10.1.2.25"], "createdAt": "2024-01-15T14:56:00.000Z" },
+    { "id": "analytics-13", "name": "analytics/eth13", "group": "analytics", "ips": ["10.1.2.176"], "createdAt": "2024-01-15T12:30:00.000Z" },
+    { "id": "analytics-14", "name": "analytics/eth14", "group": "analytics", "ips": ["10.1.2.133", "10.1.2.61"], "createdAt": "2024-01-15T02:00:00.000Z" },
+    { "id": "analytics-15", "name": "analytics/eth15", "group": "analytics", "ips": ["10.1.2.88"], "createdAt": "2024-01-15T13:00:00.000Z" },
+    { "id": "analytics-16", "name": "analytics/eth16", "group": "analytics", "ips": ["10.1.2.210", "10.1.2.47"], "createdAt": "2024-01-15T13:30:00.000Z" },
+    { "id": "analytics-17", "name": "analytics/eth17", "group": "analytics", "ips": ["10.1.2.152"], "createdAt": "2024-01-15T14:55:00.000Z" },
+    { "id": "analytics-18", "name": "analytics/eth18", "group": "analytics", "ips": ["10.1.2.74"], "createdAt": "2024-01-15T14:00:00.000Z" },
+    { "id": "analytics-19", "name": "analytics/eth19", "group": "analytics", "ips": ["10.1.2.191", "10.1.2.106"], "createdAt": "2024-01-15T01:00:00.000Z" },
+    { "id": "analytics-20", "name": "analytics/eth20", "group": "analytics", "ips": ["10.1.2.29"], "createdAt": "2024-01-15T14:15:00.000Z" },
+    { "id": "analytics-21", "name": "analytics/eth21", "group": "analytics", "ips": ["10.1.2.120", "10.1.2.237"], "createdAt": "2024-01-15T14:30:00.000Z" },
+    { "id": "analytics-22", "name": "analytics/eth22", "group": "analytics", "ips": ["10.1.2.55"], "createdAt": "2024-01-15T14:45:00.000Z" },
+    { "id": "analytics-23", "name": "analytics/eth23", "group": "analytics", "ips": ["10.1.2.169"], "createdAt": "2024-01-15T15:00:00.000Z" },
+    { "id": "analytics-24", "name": "analytics/eth24", "group": "analytics", "ips": ["10.1.2.97", "10.1.2.214"], "createdAt": "2024-01-15T00:00:00.000Z" },
+    { "id": "analytics-25", "name": "analytics/eth25", "group": "analytics", "ips": ["10.1.2.36"], "createdAt": "2024-01-15T15:15:00.000Z" },
+    { "id": "analytics-26", "name": "analytics/eth26", "group": "analytics", "ips": ["10.1.2.148", "10.1.2.85"], "createdAt": "2024-01-15T15:30:00.000Z" },
+    { "id": "analytics-27", "name": "analytics/eth27", "group": "analytics", "ips": ["10.1.2.112"], "createdAt": "2024-01-15T14:59:00.000Z" },
+    { "id": "analytics-28", "name": "analytics/eth28", "group": "analytics", "ips": ["10.1.2.194"], "createdAt": "2024-01-15T15:45:00.000Z" },
+    { "id": "analytics-29", "name": "analytics/eth29", "group": "analytics", "ips": ["10.1.2.63", "10.1.2.180"], "createdAt": "2024-01-14T23:00:00.000Z" },
+    { "id": "analytics-30", "name": "analytics/eth30", "group": "analytics", "ips": ["10.1.2.17"], "createdAt": "2024-01-15T16:00:00.000Z" },
+    { "id": "analytics-31", "name": "analytics/eth31", "group": "analytics", "ips": ["10.1.2.126", "10.1.2.215"], "createdAt": "2024-01-15T16:15:00.000Z" },
+    { "id": "analytics-32", "name": "analytics/eth32", "group": "analytics", "ips": ["10.1.2.75"], "createdAt": "2024-01-15T16:30:00.000Z" },
+    { "id": "analytics-33", "name": "analytics/eth33", "group": "analytics", "ips": ["10.1.2.160"], "createdAt": "2024-01-15T16:45:00.000Z" },
+    { "id": "analytics-34", "name": "analytics/eth34", "group": "analytics", "ips": ["10.1.2.109", "10.1.2.240"], "createdAt": "2024-01-14T22:00:00.000Z" },
+    { "id": "analytics-35", "name": "analytics/eth35", "group": "analytics", "ips": ["10.1.2.44"], "createdAt": "2024-01-15T17:00:00.000Z" },
+    { "id": "analytics-36", "name": "analytics/eth36", "group": "analytics", "ips": ["10.1.2.177", "10.1.2.92"], "createdAt": "2024-01-15T17:15:00.000Z" },
+    { "id": "analytics-37", "name": "analytics/eth37", "group": "analytics", "ips": ["10.1.2.128"], "createdAt": "2024-01-15T14:54:00.000Z" },
+    { "id": "analytics-38", "name": "analytics/eth38", "group": "analytics", "ips": ["10.1.2.49"], "createdAt": "2024-01-15T17:30:00.000Z" },
+    { "id": "analytics-39", "name": "analytics/eth39", "group": "analytics", "ips": ["10.1.2.207", "10.1.2.66"], "createdAt": "2024-01-14T21:00:00.000Z" },
+    { "id": "analytics-40", "name": "analytics/eth40", "group": "analytics", "ips": ["10.1.2.23"], "createdAt": "2024-01-15T17:45:00.000Z" },
+    { "id": "analytics-41", "name": "analytics/eth41", "group": "analytics", "ips": ["10.1.2.135", "10.1.2.222"], "createdAt": "2024-01-15T18:00:00.000Z" },
+    { "id": "analytics-42", "name": "analytics/eth42", "group": "analytics", "ips": ["10.1.2.81"], "createdAt": "2024-01-15T18:15:00.000Z" },
+    { "id": "analytics-43", "name": "analytics/eth43", "group": "analytics", "ips": ["10.1.2.174"], "createdAt": "2024-01-15T18:30:00.000Z" },
+    { "id": "analytics-44", "name": "analytics/eth44", "group": "analytics", "ips": ["10.1.2.143", "10.1.2.31"], "createdAt": "2024-01-14T20:00:00.000Z" },
+
+    { "id": "igw-0", "name": "Internet Gateway", "group": "gateways", "type": "igw", "ips": ["203.0.113.1"], "createdAt": "2024-01-15T08:00:00.000Z" },
+    { "id": "vgw-0", "name": "VPN Gateway", "group": "gateways", "type": "vgw", "ips": ["203.0.113.2"], "createdAt": "2024-01-15T08:00:00.000Z" },
+    { "id": "peering-0", "name": "VPC Peering", "group": "gateways", "type": "peering", "ips": ["203.0.113.3"], "createdAt": "2024-01-15T08:00:00.000Z" },
+    { "id": "endpoint-s3-0", "name": "S3 Endpoint", "group": "endpoints", "type": "endpoint", "subtype": "s3", "ips": ["203.0.113.10"], "createdAt": "2024-01-15T08:00:00.000Z" },
+    { "id": "endpoint-dynamodb-0", "name": "DynamoDB Endpoint", "group": "endpoints", "type": "endpoint", "subtype": "dynamodb", "ips": ["203.0.113.11"], "createdAt": "2024-01-15T08:00:00.000Z" }
+  ],
+  "traffic": [
+    { "id": "auth-0", "srcaddr": "10.1.2.15", "dstaddr": "10.1.2.194", "bytes": 10000000, "packets": 12345, "success": 99, "failed": 1 },
+    { "id": "auth-0", "srcaddr": "10.1.2.112", "dstaddr": "10.1.2.85", "bytes": 5000000, "packets": 6789, "success": 100, "failed": 0 },
+    { "id": "auth-1", "srcaddr": "10.1.2.194", "dstaddr": "10.1.2.15", "bytes": 1000, "packets": 1234, "success": 100, "failed": 0 },
+    { "id": "auth-2", "srcaddr": "10.1.2.203", "dstaddr": "10.1.2.42", "bytes": 8000000, "packets": 10000, "success": 100, "failed": 0 },
+    { "id": "orders-0", "srcaddr": "10.1.2.42", "dstaddr": "10.1.2.129", "bytes": 12000000, "packets": 15000, "success": 99, "failed": 1 },
+    { "id": "orders-1", "srcaddr": "10.1.2.129", "dstaddr": "10.1.2.38", "bytes": 3000000, "packets": 4000, "success": 100, "failed": 0 },
+    { "id": "orders-2", "srcaddr": "10.1.2.38", "dstaddr": "10.1.2.167", "bytes": 500000, "packets": 600, "success": 95, "failed": 5 },
+    { "id": "payments-0", "srcaddr": "10.1.2.167", "dstaddr": "10.1.2.73", "bytes": 7000000000, "packets": 8500, "success": 99, "failed": 1 },
+    { "id": "payments-1", "srcaddr": "10.1.2.73", "dstaddr": "10.1.2.51", "bytes": 2000000, "packets": 2500, "success": 98, "failed": 2 },
+    { "id": "payments-2", "srcaddr": "10.1.2.51", "dstaddr": "10.1.2.22", "bytes": 4000000, "packets": 5000, "success": 20, "failed": 80 },
+    { "id": "auth-0", "srcaddr": "10.1.2.15", "dstaddr": "203.0.113.1", "bytes": 5000000, "packets": 5000, "success": 100, "failed": 0 },
+    { "id": "orders-0", "srcaddr": "10.1.2.42", "dstaddr": "203.0.113.1", "bytes": 3000000, "packets": 3000, "success": 100, "failed": 0 },
+    { "id": "orders-1", "srcaddr": "10.1.2.129", "dstaddr": "203.0.113.1", "bytes": 2000000, "packets": 2000, "success": 100, "failed": 0 },
+    { "id": "payments-0", "srcaddr": "10.1.2.167", "dstaddr": "203.0.113.1", "bytes": 4000000, "packets": 4000, "success": 100, "failed": 0 },
+    { "id": "analytics-0", "srcaddr": "10.1.2.22", "dstaddr": "203.0.113.1", "bytes": 6000000, "packets": 6000, "success": 100, "failed": 0 },
+    { "id": "auth-0", "srcaddr": "10.1.2.112", "dstaddr": "203.0.113.3", "bytes": 2500000, "packets": 2500, "success": 100, "failed": 0 },
+    { "id": "orders-1", "srcaddr": "10.1.2.129", "dstaddr": "203.0.113.3", "bytes": 1500000, "packets": 1500, "success": 100, "failed": 0 },
+    { "id": "payments-1", "srcaddr": "10.1.2.73", "dstaddr": "203.0.113.3", "bytes": 1800000, "packets": 1800, "success": 100, "failed": 0 },
+    { "id": "auth-0", "srcaddr": "10.1.2.15", "dstaddr": "203.0.113.10", "bytes": 8000000, "packets": 8000, "success": 100, "failed": 0 },
+    { "id": "auth-1", "srcaddr": "10.1.2.84", "dstaddr": "203.0.113.10", "bytes": 7000000, "packets": 7000, "success": 100, "failed": 0 },
+    { "id": "orders-0", "srcaddr": "10.1.2.42", "dstaddr": "203.0.113.10", "bytes": 9000000, "packets": 9000, "success": 100, "failed": 0 },
+    { "id": "orders-1", "srcaddr": "10.1.2.129", "dstaddr": "203.0.113.10", "bytes": 6000000, "packets": 6000, "success": 100, "failed": 0 },
+    { "id": "payments-0", "srcaddr": "10.1.2.167", "dstaddr": "203.0.113.10", "bytes": 5000000, "packets": 5000, "success": 100, "failed": 0 },
+    { "id": "analytics-0", "srcaddr": "10.1.2.22", "dstaddr": "203.0.113.10", "bytes": 4000000, "packets": 4000, "success": 100, "failed": 0 },
+    { "id": "analytics-1", "srcaddr": "10.1.2.145", "dstaddr": "203.0.113.10", "bytes": 3500000, "packets": 3500, "success": 100, "failed": 0 }
+  ]
+}
+</script>
+    </network-chord-diagram>
+</div>
+
+<script type="module" src="./js/app.js"></script>
+
+</body>
+</html>
+
