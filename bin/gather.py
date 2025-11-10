@@ -285,12 +285,14 @@ class NetworkInterfaceDiscovery:
                         network = ipaddress.IPv4Network(cidr, strict=False)
                         gateway_ip = str(network.network_address + 1)
                         gateway_ips.append(gateway_ip)
-                        # Map subnet ID to AZ ID
+                        # Map subnet ID to subnet name
                         subnet_id = subnet['SubnetId']
-                        az_id = subnet.get('AvailabilityZoneId', subnet['AvailabilityZone'])
-                        subnet_ids[subnet_id] = az_id
+                        subnet_tags = {tag['Key']: tag['Value'] for tag in subnet.get('Tags', [])}
+                        subnet_name = subnet_tags.get('Name', subnet_id)
+                        subnet_ids[subnet_id] = subnet_name
                         # Map AZ name to AZ ID
                         az_name = subnet['AvailabilityZone']
+                        az_id = subnet.get('AvailabilityZoneId', az_name)
                         azs[az_name] = az_id
                     
                     # Create single virtual interface with all gateway IPs
@@ -332,12 +334,14 @@ class NetworkInterfaceDiscovery:
                 network = ipaddress.IPv4Network(cidr, strict=False)
                 dns_ip = str(network.network_address + 2)
                 dns_ips.append(dns_ip)
-                # Map subnet ID to AZ ID
+                # Map subnet ID to subnet name
                 subnet_id = subnet['SubnetId']
-                az_id = subnet.get('AvailabilityZoneId', subnet['AvailabilityZone'])
-                subnet_ids[subnet_id] = az_id
+                subnet_tags = {tag['Key']: tag['Value'] for tag in subnet.get('Tags', [])}
+                subnet_name = subnet_tags.get('Name', subnet_id)
+                subnet_ids[subnet_id] = subnet_name
                 # Map AZ name to AZ ID
                 az_name = subnet['AvailabilityZone']
+                az_id = subnet.get('AvailabilityZoneId', az_name)
                 azs[az_name] = az_id
             
             # Create single virtual interface with all DNS IPs
@@ -1005,10 +1009,22 @@ class NetworkInterfaceDiscovery:
         subnet_ids = {}
         azs = {}
         if subnet_id != 'N/A':
-            # Try to get AZ ID from subnet (would need to fetch subnet details)
-            # For now, use AZ name as fallback
-            az_id = az_name  # This could be enhanced to fetch actual AZ ID
-            subnet_ids[subnet_id] = az_id
+            # Get subnet name from subnet details (need to look it up)
+            subnet_name = subnet_id  # Default to subnet_id if name not found
+            try:
+                subnet_details = self.ec2_client.describe_subnets(SubnetIds=[subnet_id])
+                if subnet_details['Subnets']:
+                    subnet = subnet_details['Subnets'][0]
+                    subnet_tags = {tag['Key']: tag['Value'] for tag in subnet.get('Tags', [])}
+                    subnet_name = subnet_tags.get('Name', subnet_id)
+                    # Also get the correct AZ ID from subnet details
+                    az_id = subnet.get('AvailabilityZoneId', az_name)
+                else:
+                    az_id = az_name
+            except ClientError:
+                az_id = az_name
+            
+            subnet_ids[subnet_id] = subnet_name
             if az_name != 'N/A':
                 azs[az_name] = az_id
         
