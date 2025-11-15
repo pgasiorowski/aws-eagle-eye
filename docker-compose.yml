@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  ui:
+    build: ./app
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/app
+    working_dir: /app
+    env_file:
+      - .env
+    environment:
+      PYTHONUNBUFFERED: 1
+      VPC_LIST_TABLE_NAME: aws-eagle-eye-vpcs
+      VPC_MAP_TABLE_NAME: aws-eagle-eye-nics

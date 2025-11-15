@@ -87,15 +87,22 @@ network-chord-diagram {
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
     font-size: 13px;
-    min-width: 200px;
+    min-width: 250px;
+    max-width: 350px;
+    max-height: 80vh;
+    overflow-y: auto;
     z-index: 1000;
 }
 
 .control-panel h3 {
-    margin: 0 0 12px 0;
+    margin: 16px 0 12px 0;
     font-size: 14px;
     font-weight: 600;
     color: #333;
+}
+
+.control-panel h3:first-child {
+    margin-top: 0;
 }
 
 .control-group {
@@ -154,4 +161,60 @@ network-chord-diagram {
 .tag-selector select:focus {
     outline: none;
     border-color: #1f77b4;
+}
+
+/* VPC List styles */
+.vpc-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 16px 0;
+}
+
+.vpc-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    margin-bottom: 4px;
+    background: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    transition: background 0.2s;
+    font-size: 12px;
+}
+
+.vpc-item:hover {
+    background: #e9ecef;
+}
+
+.vpc-checkbox {
+    flex-shrink: 0;
+    cursor: pointer;
+    margin: 0;
+}
+
+.vpc-id {
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    color: #1f77b4;
+    flex-shrink: 0;
+}
+
+.vpc-name {
+    font-weight: 500;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+}
+
+.no-vpcs, .error {
+    color: #666;
+    font-style: italic;
+    padding: 8px;
+}
+
+.error {
+    color: #e74c3c;
 }

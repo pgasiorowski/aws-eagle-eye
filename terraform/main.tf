@@ -1,8 +1,19 @@
 ##
 # DynamoDB Table
 ##
-resource "aws_dynamodb_table" "argus_vpc_map" {
-  name         = "aws-eagle-eye"
+resource "aws_dynamodb_table" "vpcs" {
+  name         = "aws-eagle-eye-vpcs"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "id"
+
+  attribute {
+    name = "id"
+    type = "S"
+  }
+}
+
+resource "aws_dynamodb_table" "nics" {
+  name         = "aws-eagle-eye-nics"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "id"
 
@@ -38,9 +49,9 @@ resource "aws_dynamodb_table" "argus_vpc_map" {
 # Lambda function for processing VPC Flow Logs
 ##
 data "archive_file" "lambda_zip" {
-  type        = "zip"
-  output_path = "vpc_flow_processor.zip"
-  source_file = "lambda.py"
+  type             = "zip"
+  output_path      = "vpc_flow_processor.zip"
+  source_file      = "lambda.py"
   output_file_mode = "0666"
 }
 

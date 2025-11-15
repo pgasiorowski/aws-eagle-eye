@@ -1,4 +1,29 @@
 ##
+# Policy for application IAM User/Role
+##
+resource "aws_iam_policy" "app" {
+  name = "aws-eagle-eye-app"
+  path = "/"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:Query",
+          "dynamodb:Scan"
+        ]
+        Resource = [
+          "${aws_dynamodb_table.vpcs.arn}",
+          "${aws_dynamodb_table.nics.arn}"
+        ]
+      }
+    ]
+  })
+}
+
+
+##
 # IAM Role for Lambda execution
 ##
 resource "aws_iam_role" "lambda_execution_role" {
@@ -111,7 +136,7 @@ resource "aws_iam_role" "vpc_flow_logs_cross_account_role" {
       {
         Effect = "Allow"
         Principal = {
-          AWS = aws_iam_role.log_delivery_service_role.arn
+          AWS     = aws_iam_role.log_delivery_service_role.arn
           Service = "delivery.logs.amazonaws.com"
         }
         Action = "sts:AssumeRole"
