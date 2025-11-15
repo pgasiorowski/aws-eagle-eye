@@ -3,7 +3,7 @@
 # This role allows the Log Delivery Service to assume the cross-account role
 ##
 resource "aws_iam_role" "log_delivery_service_role" {
-  name = "LogDeliveryServiceRole-eagle-eye-temp"
+  name = "LogDeliveryServiceRole-aws-eagle-eye"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -14,13 +14,25 @@ resource "aws_iam_role" "log_delivery_service_role" {
           Service = "delivery.logs.amazonaws.com"
         }
         Action = "sts:AssumeRole"
+      },
+      {
+        Effect = "Allow"
+        Principal = {
+          AWS = var.principals_list
+        }
+        Action = "sts:AssumeRole"
       }
     ]
   })
 }
 
+resource "aws_iam_role_policy_attachment" "read_only" {
+  role = aws_iam_role.log_delivery_service_role.id
+  policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
+}
+
 resource "aws_iam_role_policy" "log_delivery_service_policy" {
-  name = "LogDeliveryServicePolicy-eagle-eye-temp"
+  name = "LogDeliveryServiceRole-aws-eagle-eye"
   role = aws_iam_role.log_delivery_service_role.id
 
   policy = jsonencode({

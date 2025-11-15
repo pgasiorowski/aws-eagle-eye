@@ -163,33 +163,52 @@ class NetworkInterfaceDiscovery:
         'amazon-aws': 'aws-managed-service',
     }
     
-    def __init__(self):
-        """Initialize the discovery service."""
+    def __init__(self, vpc_id: Optional[str] = None):
+        """Initialize the discovery service.
+        
+        Args:
+            vpc_id: Optional VPC ID to filter network interfaces
+        """
         self.session = boto3.Session()
         self.ec2_client = self.session.client('ec2')
         self.rds_client = self.session.client('rds')
         self.dynamodb = self.session.resource('dynamodb')
         self.sts_client = self.session.client('sts')
         self.tagging_client = self.session.client('resourcegroupstaggingapi')
+        self.vpc_id = vpc_id
         
         # Get account ID
         self.account_id = self.sts_client.get_caller_identity()['Account']
         self.region = self.session.region_name
         logger.info(f"Initialized for account {self.account_id} in region {self.region}")
+        if self.vpc_id:
+            logger.info(f"Filtering for VPC: {self.vpc_id}")
     
     def get_all_network_interfaces(self) -> List[Dict[str, Any]]:
         """
-        Retrieve all network interfaces in the region.
+        Retrieve all network interfaces in the region, optionally filtered by VPC.
         
         Returns:
             List of network interface dictionaries
         """
-        logger.info("Fetching all network interfaces...")
+        if self.vpc_id:
+            logger.info(f"Fetching network interfaces for VPC {self.vpc_id}...")
+        else:
+            logger.info("Fetching all network interfaces...")
         network_interfaces = []
         
         try:
             paginator = self.ec2_client.get_paginator('describe_network_interfaces')
-            for page in paginator.paginate():
+            
+            # Apply VPC filter if specified
+            if self.vpc_id:
+                page_iterator = paginator.paginate(
+                    Filters=[{'Name': 'vpc-id', 'Values': [self.vpc_id]}]
+                )
+            else:
+                page_iterator = paginator.paginate()
+            
+            for page in page_iterator:
                 network_interfaces.extend(page['NetworkInterfaces'])
             
             logger.info(f"Found {len(network_interfaces)} network interfaces")
@@ -200,17 +219,29 @@ class NetworkInterfaceDiscovery:
     
     def get_all_subnets(self) -> List[Dict[str, Any]]:
         """
-        Retrieve all subnets in the region.
+        Retrieve all subnets in the region, optionally filtered by VPC.
         
         Returns:
             List of subnet dictionaries
         """
-        logger.info("Fetching all subnets...")
+        if self.vpc_id:
+            logger.info(f"Fetching subnets for VPC {self.vpc_id}...")
+        else:
+            logger.info("Fetching all subnets...")
         subnets = []
         
         try:
             paginator = self.ec2_client.get_paginator('describe_subnets')
-            for page in paginator.paginate():
+            
+            # Apply VPC filter if specified
+            if self.vpc_id:
+                page_iterator = paginator.paginate(
+                    Filters=[{'Name': 'vpc-id', 'Values': [self.vpc_id]}]
+                )
+            else:
+                page_iterator = paginator.paginate()
+            
+            for page in page_iterator:
                 subnets.extend(page['Subnets'])
             
             logger.info(f"Found {len(subnets)} subnets")
@@ -221,17 +252,29 @@ class NetworkInterfaceDiscovery:
     
     def get_internet_gateways(self) -> List[Dict[str, Any]]:
         """
-        Retrieve all internet gateways in the region.
+        Retrieve all internet gateways in the region, optionally filtered by VPC.
         
         Returns:
             List of internet gateway dictionaries
         """
-        logger.info("Fetching all internet gateways...")
+        if self.vpc_id:
+            logger.info(f"Fetching internet gateways for VPC {self.vpc_id}...")
+        else:
+            logger.info("Fetching all internet gateways...")
         igws = []
         
         try:
             paginator = self.ec2_client.get_paginator('describe_internet_gateways')
-            for page in paginator.paginate():
+            
+            # Apply VPC filter if specified
+            if self.vpc_id:
+                page_iterator = paginator.paginate(
+                    Filters=[{'Name': 'attachment.vpc-id', 'Values': [self.vpc_id]}]
+                )
+            else:
+                page_iterator = paginator.paginate()
+            
+            for page in page_iterator:
                 igws.extend(page['InternetGateways'])
             
             logger.info(f"Found {len(igws)} internet gateways")
@@ -1464,6 +1507,10 @@ def main():
         default='gather.json',
         help='Output JSON file path (default: gather.json)'
     )
+    parser.add_argument(
+        '--vpc-id',
+        help='Filter network interfaces by VPC ID (e.g., vpc-123456)'
+    )
     
     args = parser.parse_args()
     
@@ -1476,7 +1523,7 @@ def main():
     
     try:
         logger.info("Starting network interface discovery...")
-        discovery = NetworkInterfaceDiscovery()
+        discovery = NetworkInterfaceDiscovery(vpc_id=args.vpc_id)
         
         # Collect all ENI data for JSON output
         all_eni_data = []

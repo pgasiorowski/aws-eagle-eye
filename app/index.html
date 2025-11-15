@@ -13,6 +13,16 @@
         <h3>VPCs</h3>
         <div id="vpc-list">Loading...</div>
         
+        <form class="vpc-filter-form" autocomplete="on">
+            <div class="vpc-filter-inputs">
+                <input type="text" id="filter-vpc-id" name="vpc-id" placeholder="Id" class="filter-input" autocomplete="on">
+                <input type="text" id="filter-vpc-account" name="account" placeholder="Account" class="filter-input" autocomplete="on">
+                <input type="text" id="filter-vpc-region" name="region" placeholder="Region" class="filter-input" autocomplete="on">
+                <button type="button" id="add-vpc-btn" class="add-vpc-btn">Add</button>
+            </div>
+            <div id="add-vpc-message" class="add-vpc-message"></div>
+        </form>
+        
         <h3>Group By</h3>
         <div class="control-group">
             <div class="radio-group">

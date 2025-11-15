@@ -14,6 +14,9 @@ resource "aws_iam_policy" "app" {
           "dynamodb:Scan",
           "dynamodb:GetItem",
           "dynamodb:PutItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:BatchWriteItem"
         ]
         Resource = [
           "${aws_dynamodb_table.vpcs.arn}",

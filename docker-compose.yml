@@ -12,5 +12,6 @@ services:
       - .env
     environment:
       PYTHONUNBUFFERED: 1
+      IAM_CROSS_ACCOUNT_ROLE: LogDeliveryServiceRole-aws-eagle-eye
       VPC_LIST_TABLE_NAME: aws-eagle-eye-vpcs
       VPC_MAP_TABLE_NAME: aws-eagle-eye-nics

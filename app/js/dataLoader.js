@@ -253,6 +253,75 @@ export async function loadAndConvertData(groupingType = 'resource-type', tagName
 export function setupControlPanel() {
     console.log('Setting up control panel...');
     
+    // Handle Add VPC button
+    const addVpcBtn = document.getElementById('add-vpc-btn');
+    if (addVpcBtn) {
+        addVpcBtn.addEventListener('click', async () => {
+            const vpcId = document.getElementById('filter-vpc-id').value.trim();
+            const account = document.getElementById('filter-vpc-account').value.trim();
+            const region = document.getElementById('filter-vpc-region').value.trim();
+            const messageDiv = document.getElementById('add-vpc-message');
+            
+            // Clear previous message
+            messageDiv.className = 'add-vpc-message';
+            messageDiv.textContent = '';
+            
+            // Validate inputs
+            if (!vpcId || !account || !region) {
+                messageDiv.className = 'add-vpc-message error';
+                messageDiv.textContent = 'All fields are required';
+                return;
+            }
+            
+            // Disable button during request
+            addVpcBtn.disabled = true;
+            addVpcBtn.textContent = 'Adding...';
+            
+            try {
+                const response = await fetch('/api/vpc', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        vpc_id: vpcId,
+                        account: account,
+                        region: region
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    messageDiv.className = 'add-vpc-message success';
+                    messageDiv.textContent = result.message || 'VPC added successfully';
+                    
+                    // Clear form
+                    document.getElementById('filter-vpc-id').value = '';
+                    document.getElementById('filter-vpc-account').value = '';
+                    document.getElementById('filter-vpc-region').value = '';
+                    
+                    // Reload VPC list
+                    setTimeout(() => {
+                        loadVPCData();
+                        messageDiv.className = 'add-vpc-message';
+                        messageDiv.textContent = '';
+                    }, 2000);
+                } else {
+                    messageDiv.className = 'add-vpc-message error';
+                    messageDiv.textContent = result.error || 'Failed to add VPC';
+                }
+            } catch (error) {
+                console.error('Error adding VPC:', error);
+                messageDiv.className = 'add-vpc-message error';
+                messageDiv.textContent = 'Network error: ' + error.message;
+            } finally {
+                addVpcBtn.disabled = false;
+                addVpcBtn.textContent = 'Add';
+            }
+        });
+    }
+    
     // Handle grouping radio button changes
     const radioButtons = document.querySelectorAll('input[name="grouping"]');
     console.log('Found radio buttons:', radioButtons.length);
@@ -305,8 +374,24 @@ async function loadVPCData() {
         }
         const vpcs = await response.json();
         
-        // Display VPC list in UI
-        displayVPCList(vpcs);
+        // Check which VPCs have data available
+        const vpcDataAvailability = {};
+        const dataCheckPromises = vpcs.map(async vpc => {
+            if (!vpc.id || vpc.id.trim() === '') return;
+            
+            try {
+                const res = await fetch(`/api/vpc/${vpc.id}`);
+                vpcDataAvailability[vpc.id] = res.ok;
+            } catch (err) {
+                console.error(`Error checking VPC ${vpc.id}:`, err);
+                vpcDataAvailability[vpc.id] = false;
+            }
+        });
+        
+        await Promise.all(dataCheckPromises);
+        
+        // Display VPC list in UI with data availability info
+        displayVPCList(vpcs, vpcDataAvailability);
         
         // Extract enabled VPC IDs and filter out empty IDs
         const enabledVpcIds = vpcs
@@ -341,7 +426,7 @@ async function loadVPCData() {
     }
 }
 
-function displayVPCList(vpcs) {
+function displayVPCList(vpcs, vpcDataAvailability = {}) {
     const container = document.getElementById('vpc-list');
     if (!container) return;
     
@@ -359,10 +444,26 @@ function displayVPCList(vpcs) {
         
         const displayText = vpc.name || vpc.id || 'Unnamed';
         const tooltipText = vpc.id;
+        const hasData = vpcDataAvailability[vpc.id] === true;
+        
+        // Add green checkmark icon if VPC has data
+        const dataIcon = hasData 
+            ? `<svg class="vpc-data-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2ecc71" stroke-width="3" title="Data available">
+                <polyline points="20 6 9 17 4 12"></polyline>
+               </svg>` 
+            : '';
         
         item.innerHTML = `
+            ${dataIcon}
             <input type="checkbox" class="vpc-checkbox" ${vpc.enabled ? 'checked' : ''} disabled>
             <span class="vpc-name" title="${tooltipText}">${displayText}</span>
+            ${hasData ? `<button class="vpc-refresh-btn" data-vpc-id="${vpc.id}" title="Refresh VPC data">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <polyline points="1 20 1 14 7 14"></polyline>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+            </button>` : ''}
             <button class="vpc-copy-btn" data-vpc-id="${vpc.id}" title="Copy VPC ID">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -370,6 +471,47 @@ function displayVPCList(vpcs) {
                 </svg>
             </button>
         `;
+        
+        // Add click handler for refresh button
+        const refreshBtn = item.querySelector('.vpc-refresh-btn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const vpcId = refreshBtn.getAttribute('data-vpc-id');
+                
+                // Disable button and show loading state
+                refreshBtn.disabled = true;
+                refreshBtn.classList.add('refreshing');
+                
+                try {
+                    const response = await fetch(`/api/vpc/${vpcId}/refresh`, {
+                        method: 'POST'
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (response.ok) {
+                        // Visual feedback
+                        refreshBtn.classList.add('refreshed');
+                        setTimeout(() => {
+                            refreshBtn.classList.remove('refreshed');
+                            // Reload VPC data
+                            loadVPCData();
+                            loadAndConvertData(currentGrouping, currentTagName);
+                        }, 1000);
+                    } else {
+                        alert(`Failed to refresh VPC: ${result.error}`);
+                        refreshBtn.classList.remove('refreshing');
+                        refreshBtn.disabled = false;
+                    }
+                } catch (error) {
+                    console.error('Error refreshing VPC:', error);
+                    alert(`Error refreshing VPC: ${error.message}`);
+                    refreshBtn.classList.remove('refreshing');
+                    refreshBtn.disabled = false;
+                }
+            });
+        }
         
         // Add click handler for copy button
         const copyBtn = item.querySelector('.vpc-copy-btn');
