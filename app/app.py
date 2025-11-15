@@ -406,6 +406,48 @@ def refresh_vpc(vpc_id):
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/vpc/<vpc_id>/toggle', methods=['POST'])
+def toggle_vpc(vpc_id):
+    """Toggle the enabled state of a VPC."""
+    try:
+        if not VPC_LIST_TABLE_NAME:
+            return jsonify({'error': 'VPC_LIST_TABLE_NAME not configured'}), 500
+        
+        table = dynamodb.Table(VPC_LIST_TABLE_NAME)
+        
+        # Get current state
+        try:
+            response = table.get_item(Key={'id': vpc_id})
+            if 'Item' not in response:
+                return jsonify({'error': f'VPC {vpc_id} not found'}), 404
+            
+            current_enabled = response['Item'].get('enabled', False)
+            new_enabled = not current_enabled
+            
+            # Update enabled state
+            table.update_item(
+                Key={'id': vpc_id},
+                UpdateExpression='SET enabled = :enabled',
+                ExpressionAttributeValues={':enabled': new_enabled}
+            )
+            
+            print(f"Toggled VPC {vpc_id} enabled state: {current_enabled} -> {new_enabled}")
+            
+            return jsonify({
+                'message': f'VPC {vpc_id} {"enabled" if new_enabled else "disabled"}',
+                'enabled': new_enabled
+            }), 200
+            
+        except ClientError as e:
+            print(f"Error toggling VPC: {e}")
+            return jsonify({'error': 'Failed to toggle VPC state'}), 500
+            
+    except Exception as e:
+        print(f"Error in toggle_vpc: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/vpc/<vpc_id>', methods=['GET'])
 def get_vpc_details(vpc_id):
     try:

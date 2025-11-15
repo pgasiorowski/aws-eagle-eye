@@ -191,6 +191,12 @@ network-chord-diagram {
     flex-shrink: 0;
     cursor: pointer;
     margin: 0;
+    accent-color: #1f77b4;
+}
+
+.vpc-checkbox:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
 }
 
 .vpc-data-icon {

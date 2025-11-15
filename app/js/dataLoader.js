@@ -455,7 +455,7 @@ function displayVPCList(vpcs, vpcDataAvailability = {}) {
         
         item.innerHTML = `
             ${dataIcon}
-            <input type="checkbox" class="vpc-checkbox" ${vpc.enabled ? 'checked' : ''} disabled>
+            <input type="checkbox" class="vpc-checkbox" ${vpc.enabled ? 'checked' : ''} data-vpc-id="${vpc.id}" ${hasData ? '' : 'disabled'}>
             <span class="vpc-name" title="${tooltipText}">${displayText}</span>
             ${hasData ? `<button class="vpc-refresh-btn" data-vpc-id="${vpc.id}" title="Refresh VPC data">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -471,6 +471,39 @@ function displayVPCList(vpcs, vpcDataAvailability = {}) {
                 </svg>
             </button>
         `;
+        
+        // Add click handler for checkbox toggle
+        const checkbox = item.querySelector('.vpc-checkbox');
+        if (checkbox && !checkbox.disabled) {
+            checkbox.addEventListener('change', async (e) => {
+                const vpcId = checkbox.getAttribute('data-vpc-id');
+                const isEnabled = checkbox.checked;
+                
+                try {
+                    const response = await fetch(`/api/vpc/${vpcId}/toggle`, {
+                        method: 'POST'
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (response.ok) {
+                        console.log(`VPC ${vpcId} ${isEnabled ? 'enabled' : 'disabled'}`);
+                        // Reload data to show/hide the VPC graph
+                        await loadVPCData();
+                        loadAndConvertData(currentGrouping, currentTagName);
+                    } else {
+                        alert(`Failed to toggle VPC: ${result.error}`);
+                        // Revert checkbox state
+                        checkbox.checked = !isEnabled;
+                    }
+                } catch (error) {
+                    console.error('Error toggling VPC:', error);
+                    alert(`Error toggling VPC: ${error.message}`);
+                    // Revert checkbox state
+                    checkbox.checked = !isEnabled;
+                }
+            });
+        }
         
         // Add click handler for refresh button
         const refreshBtn = item.querySelector('.vpc-refresh-btn');
