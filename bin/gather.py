@@ -24,7 +24,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
-TABLE_NAME = os.getenv("VPC_MAP_TABLE_NAME", "aws-eagle-eye")
+TABLE_NAME = os.getenv("VPC_MAP_TABLE_NAME", "aws-eagle-eye-nics")
 
 
 def convert_datetime_to_string(obj: Any) -> Any:
@@ -1096,26 +1096,26 @@ class NetworkInterfaceDiscovery:
         try:
             table = self.dynamodb.Table(TABLE_NAME)
             
-            # Prepare item for DynamoDB (convert complex types to JSON strings)
+            # Prepare item for DynamoDB (store as native maps/lists)
             item = {
                 'id': eni_data['id'],
                 'vpc_id': eni_data['vpc_id'],
                 'account_id': eni_data['account_id'],
-                'subnet_ids': json.dumps(eni_data['subnet_ids']),
-                'azs': json.dumps(eni_data['azs']),
+                'subnet_ids': eni_data['subnet_ids'],
+                'azs': eni_data['azs'],
                 'interface_type': eni_data['interface_type'],
                 'status': eni_data['status'],
                 'mac_address': eni_data['mac_address'],
                 'description': eni_data['description'],
-                'security_group_ids': json.dumps(eni_data['security_group_ids']),
-                'private_ip_addresses': json.dumps(eni_data['private_ip_addresses']),
-                'public_ips': json.dumps(eni_data['public_ips']),
-                'attachment': json.dumps(eni_data['attachment']),
-                'eni_tags': json.dumps(eni_data['eni_tags']),
+                'security_group_ids': eni_data['security_group_ids'],
+                'private_ip_addresses': eni_data['private_ip_addresses'],
+                'public_ips': eni_data['public_ips'],
+                'attachment': eni_data['attachment'],
+                'eni_tags': eni_data['eni_tags'],
                 'resource_type': eni_data['resource_type'],
                 'resource_id': eni_data['resource_id'],
                 'resource_name': eni_data['resource_name'],
-                'resource_tags': json.dumps(eni_data['resource_tags']),
+                'resource_tags': eni_data['resource_tags'],
                 'requester_id': eni_data['requester_id'],
                 'requester_managed': eni_data['requester_managed'],
                 'group': eni_data['group'],

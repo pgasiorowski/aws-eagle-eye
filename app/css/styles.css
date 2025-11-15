@@ -193,13 +193,6 @@ network-chord-diagram {
     margin: 0;
 }
 
-.vpc-id {
-    font-family: 'Courier New', monospace;
-    font-size: 11px;
-    color: #1f77b4;
-    flex-shrink: 0;
-}
-
 .vpc-name {
     font-weight: 500;
     color: #333;
@@ -207,6 +200,35 @@ network-chord-diagram {
     overflow: hidden;
     text-overflow: ellipsis;
     flex: 1;
+    cursor: help;
+}
+
+.vpc-copy-btn {
+    flex-shrink: 0;
+    background: transparent;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    color: #666;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    transition: all 0.2s;
+}
+
+.vpc-copy-btn:hover {
+    background: #ddd;
+    color: #333;
+}
+
+.vpc-copy-btn:active {
+    transform: scale(0.95);
+}
+
+.vpc-copy-btn.copied {
+    color: #2ecc71;
+    background: #d4edda;
 }
 
 .no-vpcs, .error {

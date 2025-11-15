@@ -67,23 +67,24 @@ export function collectTagNames(networkInterfaces) {
     return Array.from(tagNames).sort();
 }
 
-// Global variable to store the data file name
-let dataFileName = '';
-
-// Set the data file name
-export function setDataFileName(fileName) {
-    dataFileName = fileName;
-}
-
-// Load data from specified JSON file and convert to chart format
+// Load data from API endpoint and convert to chart format
 export async function loadAndConvertData(groupingType = 'resource-type', tagName = '') {
-    if (!dataFileName) {
+    // Get enabled VPC data from window.vpcDetails (already loaded by loadVPCData)
+    const vpcDetails = window.vpcDetails || [];
+    if (vpcDetails.length === 0) {
+        console.log('No VPC details available yet');
         return;
     }
 
     try {
-        const response = await fetch(`./${dataFileName}`);
-        const gatherData = await response.json();
+        // Use the first enabled VPC's data (already fetched, no need to fetch again)
+        const gatherData = vpcDetails[0];
+        
+        // Skip if VPC data is invalid
+        if (!gatherData || !gatherData.vpc_id) {
+            console.log('VPC data is invalid, skipping data load');
+            return;
+        }
         
         // Store original data
         if (!originalData) {
@@ -99,6 +100,12 @@ export async function loadAndConvertData(groupingType = 'resource-type', tagName
                     option.textContent = tagName;
                     tagSelect.appendChild(option);
                 });
+                
+                // Restore saved tag selection immediately after populating
+                const savedTagName = sessionStorage.getItem('tagName');
+                if (savedTagName) {
+                    tagSelect.value = savedTagName;
+                }
             }
         }
         
@@ -288,21 +295,126 @@ export function setupControlPanel() {
     }
 }
 
-// Initialize when page is ready
-export function initializeDataLoader(fileName) {
-    // Set the data file name
-    setDataFileName(fileName);
+// Load VPC list and then load details for enabled VPCs
+async function loadVPCData() {
+    try {
+        // First, load the VPC list
+        const response = await fetch('/api/vpc');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const vpcs = await response.json();
+        
+        // Display VPC list in UI
+        displayVPCList(vpcs);
+        
+        // Extract enabled VPC IDs and filter out empty IDs
+        const enabledVpcIds = vpcs
+            .filter(vpc => vpc.enabled && vpc.id && vpc.id.trim() !== '')
+            .map(vpc => vpc.id);
+        
+        console.log('Enabled VPC IDs:', enabledVpcIds);
+        
+        // Load details for each enabled VPC
+        const vpcDetailsPromises = enabledVpcIds.map(vpcId =>
+            fetch(`/api/vpc/${vpcId}`)
+                .then(res => res.ok ? res.json() : null)
+                .catch(err => {
+                    console.error(`Error loading VPC ${vpcId}:`, err);
+                    return null;
+                })
+        );
+        
+        const vpcDetails = await Promise.all(vpcDetailsPromises);
+        const validVpcDetails = vpcDetails.filter(detail => detail !== null);
+        
+        console.log('Loaded VPC details:', validVpcDetails);
+        
+        // Store VPC details for later use
+        window.vpcDetails = validVpcDetails;
+        
+        return validVpcDetails;
+    } catch (error) {
+        console.error('Error loading VPC data:', error);
+        displayVPCError(error.message);
+        return [];
+    }
+}
+
+function displayVPCList(vpcs) {
+    const container = document.getElementById('vpc-list');
+    if (!container) return;
     
+    if (vpcs.length === 0) {
+        container.innerHTML = '<p class="no-vpcs">No VPCs found</p>';
+        return;
+    }
+    
+    const list = document.createElement('ul');
+    list.className = 'vpc-list';
+    
+    vpcs.forEach(vpc => {
+        const item = document.createElement('li');
+        item.className = 'vpc-item';
+        
+        const displayText = vpc.name || vpc.id || 'Unnamed';
+        const tooltipText = vpc.id;
+        
+        item.innerHTML = `
+            <input type="checkbox" class="vpc-checkbox" ${vpc.enabled ? 'checked' : ''} disabled>
+            <span class="vpc-name" title="${tooltipText}">${displayText}</span>
+            <button class="vpc-copy-btn" data-vpc-id="${vpc.id}" title="Copy VPC ID">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+            </button>
+        `;
+        
+        // Add click handler for copy button
+        const copyBtn = item.querySelector('.vpc-copy-btn');
+        copyBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const vpcId = copyBtn.getAttribute('data-vpc-id');
+            navigator.clipboard.writeText(vpcId).then(() => {
+                // Visual feedback
+                copyBtn.classList.add('copied');
+                setTimeout(() => copyBtn.classList.remove('copied'), 1000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+            });
+        });
+        
+        list.appendChild(item);
+    });
+    
+    container.innerHTML = '';
+    container.appendChild(list);
+}
+
+function displayVPCError(message) {
+    const container = document.getElementById('vpc-list');
+    if (!container) return;
+    
+    container.innerHTML = `<p class="error">Error loading VPCs: ${message}</p>`;
+}
+
+// Initialize when page is ready
+export function initializeDataLoader() {
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             restoreSelections();
             setupControlPanel();
+            await loadVPCData();
             loadAndConvertData(currentGrouping, currentTagName);
         });
     } else {
-        restoreSelections();
-        setupControlPanel();
-        loadAndConvertData(currentGrouping, currentTagName);
+        (async () => {
+            restoreSelections();
+            setupControlPanel();
+            await loadVPCData();
+            loadAndConvertData(currentGrouping, currentTagName);
+        })();
     }
 }
 
@@ -325,15 +437,5 @@ function restoreSelections() {
         }
     }
     
-    // Restore tag selection (will be set after tags are populated)
-    const savedTagName = sessionStorage.getItem('tagName');
-    if (savedTagName) {
-        // This will be applied after tag options are populated in loadAndConvertData
-        setTimeout(() => {
-            const tagSelect = document.getElementById('tag-name-select');
-            if (tagSelect) {
-                tagSelect.value = savedTagName;
-            }
-        }, 100);
-    }
+    // Tag selection will be restored in loadAndConvertData after options are populated
 }

@@ -11,11 +11,15 @@ resource "aws_iam_policy" "app" {
         Effect = "Allow"
         Action = [
           "dynamodb:Query",
-          "dynamodb:Scan"
+          "dynamodb:Scan",
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
         ]
         Resource = [
           "${aws_dynamodb_table.vpcs.arn}",
-          "${aws_dynamodb_table.nics.arn}"
+          "${aws_dynamodb_table.nics.arn}",
+          "${aws_dynamodb_table.vpcs.arn}/*",
+          "${aws_dynamodb_table.nics.arn}/*"
         ]
       }
     ]
